@@ -1,5 +1,6 @@
-import { Shield, Sparkles, MessageCircle, Calendar, Send, Edit3 } from "lucide-react";
+import { Shield, Sparkles, MessageCircle, Calendar, Send, Edit3, MessageSquare } from "lucide-react";
 import { Client } from "@/data/mockClients";
+import { cn } from "@/lib/utils";
 
 interface ProfileHeaderProps {
     client: Client;
@@ -7,87 +8,109 @@ interface ProfileHeaderProps {
     onPrescribe?: () => void;
     onSchedule?: () => void;
     onEdit?: () => void;
+    onMessage?: () => void;
 }
 
-export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule, onEdit }: ProfileHeaderProps) {
+export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule, onEdit, onMessage }: ProfileHeaderProps) {
     return (
-        <div className="bg-white rounded-2xl p-8 border border-[var(--color-midnight-navy)]/5 shadow-sm relative overflow-hidden">
-            {/* Decorative background */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-champagne-gold)]/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+        <div className="bg-white rounded-3xl p-8 border border-[var(--color-midnight-navy)]/5 shadow-sm relative overflow-hidden">
+            {/* Background Decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[var(--color-champagne-gold)]/10 to-transparent rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col items-start gap-8">
-                <div className="w-full flex flex-col md:flex-row items-start justify-between gap-6">
-                    <div className="flex gap-6 items-center md:items-start">
-                        <div className="w-24 h-24 rounded-2xl bg-[var(--color-midnight-navy)] text-white flex items-center justify-center text-3xl font-serif shrink-0">
-                            {client.name.split('').length > 2 ? client.name.substring(1) : client.name}
+            <div className="relative flex flex-col md:flex-row gap-8 items-start">
+                {/* Avatar Section */}
+                <div className="relative">
+                    <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-[var(--color-warm-white)] flex items-center justify-center">
+                        <span className="text-4xl font-serif text-[var(--color-midnight-navy)]/20">{client.name[0]}</span>
+                    </div>
+                    <span className={cn(
+                        "absolute bottom-2 right-2 px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm border-2 border-white",
+                        client.status === "stable" ? "bg-emerald-500" :
+                            client.status === "attention" ? "bg-amber-500" : "bg-rose-500"
+                    )}>
+                        {client.status === "stable" ? "안정" : client.status === "attention" ? "주의" : "위기"}
+                    </span>
+                </div>
+
+                {/* Info Section */}
+                <div className="flex-1 space-y-4 pt-2">
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            <h1 className="text-3xl font-serif text-[var(--color-midnight-navy)]">{client.name}</h1>
+                            <span className="text-lg text-[var(--color-midnight-navy)]/40 font-light">{client.englishName}</span>
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-serif text-[var(--color-midnight-navy)] mb-1">
-                                {client.name} <span className="text-lg text-[var(--color-midnight-navy)]/40 font-sans font-normal ml-2">{client.englishName}</span>
-                            </h1>
-                            <div className="flex items-center gap-3 text-sm text-[var(--color-midnight-navy)]/60 mb-4">
-                                <span>{client.age}세</span>
-                                <span>•</span>
-                                <span>{client.gender === "Female" ? "여성" : "남성"}</span>
-                                <span>•</span>
-                                <span>{client.contact}</span>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                                <span className="px-3 py-1 rounded-full bg-[var(--color-warm-white)] text-[var(--color-midnight-navy)] text-xs font-medium border border-[var(--color-midnight-navy)]/5">
-                                    {client.condition}
-                                </span>
-                                {client.tags.map(tag => (
-                                    <span key={tag} className="px-3 py-1 rounded-full bg-[var(--color-warm-white)] text-[var(--color-midnight-navy)] text-xs font-medium border border-[var(--color-midnight-navy)]/5">
-                                        {tag}
-                                    </span>
-                                ))}
-                            </div>
+                        <div className="flex gap-4 text-sm text-[var(--color-midnight-navy)]/60">
+                            <span>{client.gender === "Female" ? "여성" : "남성"}, {client.age}세</span>
+                            <span>•</span>
+                            <span>{client.condition}</span>
                         </div>
                     </div>
 
-                    <div className="max-w-md w-full md:w-auto">
-                        <div className="p-4 rounded-xl bg-[var(--color-warm-white)] border border-[var(--color-midnight-navy)]/5">
-                            <div className="flex items-center gap-2 mb-2 text-[var(--color-champagne-gold)]">
-                                <Sparkles className="w-4 h-4" />
-                                <span className="text-xs font-bold uppercase tracking-wider">AI 요약 (Summary)</span>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-8 py-4 border-y border-[var(--color-midnight-navy)]/5 w-full md:w-auto">
+                        <div>
+                            <div className="text-xs text-[var(--color-midnight-navy)]/40 uppercase tracking-wider mb-1">Next Session</div>
+                            <div className="font-medium text-[var(--color-midnight-navy)]">{client.nextSession}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-[var(--color-midnight-navy)]/40 uppercase tracking-wider mb-1">Last Session</div>
+                            <div className="font-medium text-[var(--color-midnight-navy)]">{client.lastSession}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-[var(--color-midnight-navy)]/40 uppercase tracking-wider mb-1">Tags</div>
+                            <div className="flex gap-1">
+                                {client.tags.slice(0, 2).map(tag => (
+                                    <span key={tag} className="px-2 py-0.5 bg-[var(--color-midnight-navy)]/5 rounded text-xs text-[var(--color-midnight-navy)]/70">
+                                        {tag}
+                                    </span>
+                                ))}
+                                {client.tags.length > 2 && (
+                                    <span className="px-2 py-0.5 bg-[var(--color-midnight-navy)]/5 rounded text-xs text-[var(--color-midnight-navy)]/70">
+                                        +{client.tags.length - 2}
+                                    </span>
+                                )}
                             </div>
-                            <p className="text-sm text-[var(--color-midnight-navy)] leading-relaxed line-clamp-3">
-                                {client.notes}
-                            </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Quick Actions */}
-                <div className="w-full pt-6 md:pt-0 border-t md:border-t-0 border-[var(--color-midnight-navy)]/5 flex flex-wrap gap-3">
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3 w-full md:w-auto min-w-[180px]">
                     <button
                         onClick={onStartSession}
-                        className="h-10 px-4 rounded-lg bg-[var(--color-midnight-navy)] text-white text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors flex items-center gap-2 shadow-sm"
+                        className="w-full py-3 px-4 bg-[var(--color-midnight-navy)] text-white rounded-xl font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-all shadow-md shadow-[var(--color-midnight-navy)]/20 flex items-center justify-center gap-2"
                     >
                         <MessageCircle className="w-4 h-4" />
-                        상담 시작
+                        상담 시작 (Start)
                     </button>
-                    <button
-                        onClick={onPrescribe}
-                        className="h-10 px-4 rounded-lg bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] text-sm font-medium hover:bg-[var(--color-midnight-navy)]/5 transition-colors flex items-center gap-2"
-                    >
-                        <Send className="w-4 h-4" />
-                        처방하기
-                    </button>
-                    <button
-                        onClick={onSchedule}
-                        className="h-10 px-4 rounded-lg bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] text-sm font-medium hover:bg-[var(--color-midnight-navy)]/5 transition-colors flex items-center gap-2"
-                    >
-                        <Calendar className="w-4 h-4" />
-                        예약하기
-                    </button>
-                    <div className="flex-1" />
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={onPrescribe}
+                            className="py-3 px-4 bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] rounded-xl font-medium hover:bg-[var(--color-midnight-navy)]/5 transition-colors flex items-col justify-center gap-1 text-sm"
+                        >
+                            <Send className="w-4 h-4 mb-0.5" />
+                            처방하기
+                        </button>
+                        <button
+                            onClick={onMessage}
+                            className="py-3 px-4 bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] rounded-xl font-medium hover:bg-[var(--color-midnight-navy)]/5 transition-colors flex items-col justify-center gap-1 text-sm"
+                        >
+                            <MessageSquare className="w-4 h-4 mb-0.5" />
+                            문자전송
+                        </button>
+                        <button
+                            onClick={onSchedule}
+                            className="col-span-2 py-3 px-4 bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] rounded-xl font-medium hover:bg-[var(--color-midnight-navy)]/5 transition-colors flex items-center justify-center gap-2 text-sm"
+                        >
+                            <Calendar className="w-4 h-4" />
+                            예약하기
+                        </button>
+                    </div>
                     <button
                         onClick={onEdit}
-                        className="h-10 px-4 rounded-lg text-[var(--color-midnight-navy)]/60 text-sm font-medium hover:bg-[var(--color-midnight-navy)]/5 hover:text-[var(--color-midnight-navy)] transition-colors flex items-center gap-2"
+                        className="text-xs text-[var(--color-midnight-navy)]/40 hover:text-[var(--color-midnight-navy)] flex items-center justify-center gap-1 mt-1 transition-colors"
                     >
-                        <Edit3 className="w-4 h-4" />
+                        <Edit3 className="w-3 h-3" />
                         정보 수정
                     </button>
                 </div>

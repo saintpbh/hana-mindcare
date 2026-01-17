@@ -4,22 +4,46 @@ import Link from "next/link";
 import { ArrowLeft, Clock, FileText, AlertCircle } from "lucide-react";
 import { ProfileHeader } from "@/components/patients/ProfileHeader";
 import { MoodCalendar } from "@/components/patients/MoodCalendar";
-import { MOCK_CLIENTS } from "@/data/mockClients";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
 import { PrescriptionModal } from "@/components/library/PrescriptionModal";
 import { EditClientModal } from "@/components/patients/EditClientModal";
+import { MessageModal } from "@/components/patients/MessageModal";
 import { Client } from "@/data/mockClients";
+import { usePersistence } from "@/hooks/usePersistence";
+import { useEffect, useState } from "react";
 
 export default function PatientPage() {
     const params = useParams();
     const router = useRouter();
-    // In a real app, this initial state might come from an API or filtered MOCK_CLIENTS
-    const initialClient = MOCK_CLIENTS.find(c => c.id === params.id);
-    const [client, setClient] = useState<Client | undefined>(initialClient);
+    const { getClient, updateClient, isLoaded } = usePersistence();
+    const [client, setClient] = useState<Client | undefined>(undefined);
 
     const [isPrescribeOpen, setIsPrescribeOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isMessageOpen, setIsMessageOpen] = useState(false);
+    const handleSaveProfile = (updatedClient: Client) => {
+        updateClient(updatedClient);
+        setClient(updatedClient);
+        setIsEditOpen(false);
+    };
+
+    const handleStartSession = () => {
+        router.push(`/session/${params.id}`);
+    };
+
+    const handleSchedule = () => {
+        router.push("/schedule");
+    };
+
+    if (!isLoaded) {
+        return <div className="min-h-screen bg-[var(--color-warm-white)]" />;
+    }
+
+    useEffect(() => {
+        if (isLoaded && typeof params.id === 'string') {
+            setClient(getClient(params.id));
+        }
+    }, [isLoaded, params.id, getClient]);
 
     if (!client) {
         return (
@@ -45,7 +69,14 @@ export default function PatientPage() {
                     내담자 목록으로 돌아가기
                 </Link>
 
-                <ProfileHeader client={client} />
+                <ProfileHeader
+                    client={client}
+                    onStartSession={handleStartSession}
+                    onPrescribe={() => setIsPrescribeOpen(true)}
+                    onSchedule={handleSchedule}
+                    onEdit={() => setIsEditOpen(true)}
+                    onMessage={() => setIsMessageOpen(true)}
+                />
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left: Mood & Stats */}
@@ -107,6 +138,25 @@ export default function PatientPage() {
                     </div>
                 </div>
             </div>
+            {/* Modals */}
+            <PrescriptionModal
+                isOpen={isPrescribeOpen}
+                onClose={() => setIsPrescribeOpen(false)}
+                resourceTitle="추천 콘텐츠"
+            />
+
+            <EditClientModal
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                onSave={handleSaveProfile}
+                client={client}
+            />
+
+            <MessageModal
+                isOpen={isMessageOpen}
+                onClose={() => setIsMessageOpen(false)}
+                client={client}
+            />
         </div>
     );
 }

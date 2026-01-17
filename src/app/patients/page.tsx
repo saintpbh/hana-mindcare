@@ -1,20 +1,23 @@
+
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { Search, Filter, Plus, Users, ArrowLeft } from "lucide-react";
 import { ClientCard } from "@/components/patients/ClientCard";
-import { MOCK_CLIENTS, Client } from "@/data/mockClients";
+import { Client } from "@/data/mockClients"; // Keep Client type, remove MOCK_CLIENTS
 import { cn } from "@/lib/utils";
+import { usePersistence } from "@/hooks/usePersistence"; // New import
 
 import { NewClientModal } from "@/components/patients/NewClientModal";
 
 export default function PatientsPage() {
+    const { clients, isLoaded, addClient } = usePersistence(); // Replaced local state with usePersistence
     const [searchTerm, setSearchTerm] = useState("");
 
     const [activeFilter, setActiveFilter] = useState<"all" | "attention" | "crisis" | "upcoming">("all");
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
+    // const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS); // Removed
 
     const filteredClients = clients.filter(client => {
         const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -36,7 +39,7 @@ export default function PatientsPage() {
     });
 
     const handleRegisterClient = (newClient: Client) => {
-        setClients(prev => [newClient, ...prev]);
+        addClient(newClient);
         setIsModalOpen(false);
     };
 
