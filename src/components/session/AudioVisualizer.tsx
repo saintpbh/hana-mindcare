@@ -1,0 +1,34 @@
+"use client";
+
+import { motion } from "framer-motion";
+
+export function AudioVisualizer() {
+    // Simulate 30 bars for the visualizer
+    const bars = Array.from({ length: 30 });
+
+    return (
+        <div className="flex items-center justify-center gap-1 h-12 w-full overflow-hidden">
+            {bars.map((_, index) => (
+                <motion.div
+                    key={index}
+                    className="w-1 rounded-full bg-[var(--color-champagne-gold)]"
+                    animate={{
+                        height: [
+                            "10%",
+                            `${Math.random() * 80 + 20}%`,
+                            "10%"
+                        ],
+                        opacity: [0.3, 1, 0.3],
+                    }}
+                    transition={{
+                        duration: 1.2,
+                        repeat: Infinity,
+                        repeatType: "reverse",
+                        ease: "easeInOut",
+                        delay: index * 0.05, // Stagger effect
+                    }}
+                />
+            ))}
+        </div>
+    );
+}
