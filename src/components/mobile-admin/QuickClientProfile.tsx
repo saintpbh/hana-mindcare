@@ -36,6 +36,16 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
         }
     };
 
+    const handleCall = () => {
+        // 1. Log the call
+        const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        const callLog = `\n[System] 📞 발신 통화 (${now})`;
+        updateClient({ ...client, notes: client.notes + callLog });
+
+        // 2. Trigger native call
+        window.location.href = `tel:${client.contact}`;
+    };
+
     return (
         <>
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-midnight-navy)]/5 relative overflow-hidden">
@@ -124,9 +134,12 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                             <FileText className="w-4 h-4" />
                             간편 메모
                         </button>
-                        <button className="py-3 bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] rounded-xl font-medium flex items-center justify-center gap-2 active:bg-gray-50">
+                        <button
+                            onClick={handleCall}
+                            className="py-3 bg-green-50 border border-green-100 text-green-700 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                        >
                             <Phone className="w-4 h-4" />
-                            통화 기록
+                            통화하기
                         </button>
                     </div>
                 </div>
