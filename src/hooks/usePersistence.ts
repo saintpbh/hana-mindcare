@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import { Client, MOCK_CLIENTS } from "@/data/mockClients";
 
-const STORAGE_KEYS = {
-    CLIENTS: "hana_care_clients_v1",
-};
+const STORAGE_KEY = "hana-clients-v2";
 
 export function usePersistence() {
     const [clients, setClients] = useState<Client[]>([]);
@@ -13,7 +11,7 @@ export function usePersistence() {
 
     // Initialize from localStorage or fallback to MOCK_CLIENTS
     useEffect(() => {
-        const storedClients = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+        const storedClients = localStorage.getItem(STORAGE_KEY);
         if (storedClients) {
             try {
                 setClients(JSON.parse(storedClients));
@@ -23,7 +21,7 @@ export function usePersistence() {
             }
         } else {
             setClients(MOCK_CLIENTS);
-            localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(MOCK_CLIENTS));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_CLIENTS));
         }
         setIsLoaded(true);
     }, []);
@@ -31,7 +29,7 @@ export function usePersistence() {
     // Save clients to localStorage whenever they change
     const saveClients = (newClients: Client[]) => {
         setClients(newClients);
-        localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(newClients));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newClients));
     };
 
     const addClient = (client: Client) => {

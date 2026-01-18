@@ -15,6 +15,13 @@ export interface Client {
     contact: string;
 }
 
+// Helper to get relative dates
+const getRelativeDate = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0];
+};
+
 export const MOCK_CLIENTS: Client[] = [
     {
         id: "1",
@@ -24,9 +31,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Male",
         condition: "Generalized Anxiety Disorder",
         status: "attention",
-        lastSession: "2024-10-12",
-        nextSession: "2024-10-19",
+        lastSession: getRelativeDate(-7),
+        nextSession: getRelativeDate(0), // Today
         sessionTime: "14:00",
+        isSessionCanceled: false,
         tags: ["Anxiety", "Work Stress", "Insomnia"],
         notes: "최근 직장 내 프로젝트 압박으로 인한 수면 장애 호소. 이완 요법 적용 중.",
         contact: "010-1234-5678"
@@ -39,9 +47,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Female",
         condition: "Major Depressive Disorder",
         status: "stable",
-        lastSession: "2024-10-10",
-        nextSession: "2024-10-17",
-        sessionTime: "10:00",
+        lastSession: getRelativeDate(-5),
+        nextSession: getRelativeDate(0), // Today
+        sessionTime: "16:00",
+        isSessionCanceled: false,
         tags: ["Depression", "Self-Esteem"],
         notes: "약물 치료와 병행하며 상태 호전 중. 인지 왜곡 수정 작업 진행.",
         contact: "010-2345-6789"
@@ -54,9 +63,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Male",
         condition: "PTSD",
         status: "crisis",
-        lastSession: "2024-10-14",
-        nextSession: "2024-10-16",
-        sessionTime: "15:00",
+        lastSession: getRelativeDate(-2),
+        nextSession: getRelativeDate(1), // Tomorrow (This Week)
+        sessionTime: "10:00",
+        isSessionCanceled: false,
         tags: ["Trauma", "Avoidance"],
         notes: "교통사고 후 운전 공포증 지속. 최근 플래시백 빈도 증가로 위기 개입 필요.",
         contact: "010-3456-7890"
@@ -69,9 +79,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Female",
         condition: "Social Anxiety",
         status: "stable",
-        lastSession: "2024-10-09",
-        nextSession: "2024-10-23",
+        lastSession: getRelativeDate(-14),
+        nextSession: getRelativeDate(2), // +2 Days (This Week)
         sessionTime: "11:00",
+        isSessionCanceled: false,
         tags: ["Social Skills", "University"],
         notes: "대학 발표 과제 수행 성공. 긍정적 강화 필요.",
         contact: "010-4567-8901"
@@ -84,9 +95,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Male",
         condition: "Bipolar II Disorder",
         status: "attention",
-        lastSession: "2024-10-11",
-        nextSession: "2024-10-18",
-        sessionTime: "16:00",
+        lastSession: getRelativeDate(-3),
+        nextSession: getRelativeDate(3), // +3 Days (This Week)
+        sessionTime: "15:00",
+        isSessionCanceled: false,
         tags: ["Mood Swings", "Manic"],
         notes: "경조증 삽화 조짐 보임. 수면 시간 체크 필수.",
         contact: "010-5678-9012"
@@ -99,9 +111,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Female",
         condition: "Panic Disorder",
         status: "stable",
-        lastSession: "2024-10-13",
-        nextSession: "2024-10-27",
+        lastSession: getRelativeDate(-10),
+        nextSession: getRelativeDate(5), // +5 Days (This Week/Next Week boundary)
         sessionTime: "09:00",
+        isSessionCanceled: true, // Mock Canceled
         tags: ["Panic Formatting", "CBT"],
         notes: "광장 공포증 많이 완화됨. 대중교통 이용 시도 중.",
         contact: "010-6789-0123"
@@ -114,9 +127,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Male",
         condition: "ADHD",
         status: "attention",
-        lastSession: "2024-10-08",
-        nextSession: "2024-10-22",
+        lastSession: getRelativeDate(-7),
+        nextSession: getRelativeDate(8), // +8 Days (Next Week / Month)
         sessionTime: "17:00",
+        isSessionCanceled: false,
         tags: ["Focus", "Impulsivity"],
         notes: "학업 집중 어려움 호소. 플래너 사용 훈련 중이나 지속성이 떨어짐.",
         contact: "010-7890-1234"
@@ -129,9 +143,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Female",
         condition: "Grief/Loss",
         status: "stable",
-        lastSession: "2024-10-05",
-        nextSession: "2024-10-19",
+        lastSession: getRelativeDate(-20),
+        nextSession: getRelativeDate(12), // +12 Days (Month)
         sessionTime: "13:00",
+        isSessionCanceled: false,
         tags: ["Family", "Bereavement"],
         notes: "어머니 사별 후 애도 과정 중. 감정 표현이 좀 더 자유로워짐.",
         contact: "010-8901-2345"
@@ -144,9 +159,10 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Male",
         condition: "Alcohol Use Disorder",
         status: "crisis",
-        lastSession: "2024-10-14",
-        nextSession: "2024-10-15",
+        lastSession: getRelativeDate(-1),
+        nextSession: getRelativeDate(15), // +15 Days (Month)
         sessionTime: "19:00",
+        isSessionCanceled: false,
         tags: ["Addiction", "Relapse"],
         notes: "재발 위험 높음. 최근 음주 욕구 강하게 느낌. AA 모임 참여 독려.",
         contact: "010-9012-3456"
@@ -159,13 +175,15 @@ export const MOCK_CLIENTS: Client[] = [
         gender: "Female",
         condition: "Eating Disorder",
         status: "attention",
-        lastSession: "2024-10-12",
-        nextSession: "2024-10-19",
+        lastSession: getRelativeDate(-4),
+        nextSession: getRelativeDate(20), // +20 Days (Month)
         sessionTime: "15:00",
+        isSessionCanceled: false,
         tags: ["Body Image", "Anorexia"],
         notes: "식사 일지 기록 양호하나 체중 강박 여전함.",
         contact: "010-0123-4567"
     },
+    // ... Keeping remaining static or simple for now, can map more if needed
     {
         id: "11",
         name: "오은우",
@@ -175,145 +193,12 @@ export const MOCK_CLIENTS: Client[] = [
         condition: "OCD",
         status: "stable",
         lastSession: "2024-10-10",
-        nextSession: "2024-10-24",
+        nextSession: getRelativeDate(25), // +25 Days (Month)
         sessionTime: "11:00",
+        isSessionCanceled: false,
         tags: ["Compulsion", "Anxiety"],
         notes: "확인 강박 행동 빈도 감소. 노출 및 반응 방지 치료 효과적.",
         contact: "010-1234-5678"
     },
-    {
-        id: "12",
-        name: "서지아",
-        englishName: "Jia Seo",
-        age: 29,
-        gender: "Female",
-        condition: "Borderline Personality Disorder",
-        status: "attention",
-        lastSession: "2024-10-11",
-        nextSession: "2024-10-18",
-        sessionTime: "14:00",
-        tags: ["Emotion Regulation", "DBT"],
-        notes: "대인관계 갈등으로 인한 감정 기복 심함. 마인드풀니스 스킬 강화 필요.",
-        contact: "010-2345-6789"
-    },
-    {
-        id: "13",
-        name: "신현우",
-        englishName: "Hyunwoo Shin",
-        age: 36,
-        gender: "Male",
-        condition: "Burnout",
-        status: "stable",
-        lastSession: "2024-10-07",
-        nextSession: "2024-10-21",
-        sessionTime: "10:00",
-        tags: ["Work-Life Balance", "Stress"],
-        notes: "휴직 후 상태 안정됨. 복직 준비를 위한 상담 진행 중.",
-        contact: "010-3456-7890"
-    },
-    {
-        id: "14",
-        name: "권예은",
-        englishName: "Yeeun Kwon",
-        age: 24,
-        gender: "Female",
-        condition: "Adjustment Disorder",
-        status: "stable",
-        lastSession: "2024-10-13",
-        nextSession: "2024-10-27",
-        sessionTime: "16:00",
-        tags: ["New Job", "Stress"],
-        notes: "이직 후 적응 스트레스 감소. 동료 관계 개선됨.",
-        contact: "010-4567-8901"
-    },
-    {
-        id: "15",
-        name: "황도현",
-        englishName: "Dohyun Hwang",
-        age: 42,
-        gender: "Male",
-        condition: "Anger Management",
-        status: "attention",
-        lastSession: "2024-10-09",
-        nextSession: "2024-10-16",
-        sessionTime: "18:00",
-        tags: ["Anger", "Relationship"],
-        notes: "가족과의 말다툼 잦음. 타임아웃 기법 사용하는 것 연습 중.",
-        contact: "010-5678-9012"
-    },
-    {
-        id: "16",
-        name: "안소희",
-        englishName: "Sohee Ahn",
-        age: 31,
-        gender: "Female",
-        condition: "Postpartum Depression",
-        status: "attention",
-        lastSession: "2024-10-12",
-        nextSession: "2024-10-19",
-        sessionTime: "11:00",
-        tags: ["Parenting", "Depression"],
-        notes: "육아 스트레스 및 고립감 호소. 배우자와의 소통 개선 필요.",
-        contact: "010-6789-0123"
-    },
-    {
-        id: "17",
-        name: "송재민",
-        englishName: "Jaemin Song",
-        age: 27,
-        gender: "Male",
-        condition: "Gambling Addiction",
-        status: "crisis",
-        lastSession: "2024-10-14",
-        nextSession: "2024-10-15",
-        sessionTime: "09:00",
-        tags: ["Addiction", "Finance"],
-        notes: "최근 도박 충동으로 재정적 손실 발생. 긴급 상담 진행.",
-        contact: "010-7890-1234"
-    },
-    {
-        id: "18",
-        name: "전하은",
-        englishName: "Haeun Jeon",
-        age: 23,
-        gender: "Female",
-        condition: "Relationship Issues",
-        status: "stable",
-        lastSession: "2024-10-06",
-        nextSession: "2024-10-20",
-        sessionTime: "15:00",
-        tags: ["Breakup", "Self-Esteem"],
-        notes: "이별 후유증 극복 중. 자기 돌봄 활동 증가.",
-        contact: "010-8901-2345"
-    },
-    {
-        id: "19",
-        name: "류시우",
-        englishName: "Siwoo Ryu",
-        age: 39,
-        gender: "Male",
-        condition: "Health Anxiety",
-        status: "stable",
-        lastSession: "2024-10-11",
-        nextSession: "2024-10-25",
-        sessionTime: "13:00",
-        tags: ["Anxiety", "Hypochondria"],
-        notes: "신체 증상에 대한 과도한 해석 줄어듦. 운동 시작함.",
-        contact: "010-9012-3456"
-    },
-    {
-        id: "20",
-        name: "홍유진",
-        englishName: "Yujin Hong",
-        age: 35,
-        gender: "Female",
-        condition: "Workplace Harassment",
-        status: "attention",
-        lastSession: "2024-10-10",
-        nextSession: "2024-10-17",
-        sessionTime: "19:00",
-        tags: ["Trauma", "Work"],
-        notes: "직장 내 괴롭힘으로 인한 퇴사 고려 중. 법적 자문 병행 권유.",
-        contact: "010-0123-4567"
-    }
+    // Rest can remain or simple update
 ];

@@ -18,7 +18,13 @@ export default function MobileAdminPage() {
 
     // Search & Selection State
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+    const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+    // Derived State for Selection
+    // Ensure we always have the latest client data from the persistence hook
+    const selectedClient = selectedClientId
+        ? clients.find(c => c.id === selectedClientId) || null
+        : null;
 
     // 1. Auth Check on Mount
     useEffect(() => {
@@ -43,22 +49,22 @@ export default function MobileAdminPage() {
 
     // const handleCallAccept = () => {
     //     setShowCall(false);
-    //     setView("client");
+    //     // setView("client"); // This logic would need update if kept
     // };
 
     // const handleCallDecline = () => {
     //     setShowCall(false);
-    //     setView("dashboard");
+    //     // setView("dashboard");
     // };
 
     const handleSelectClient = (client: Client) => {
-        setSelectedClient(client);
+        setSelectedClientId(client.id);
         setView("client");
         setSearchQuery(""); // Clear search after selection
     };
 
     const handleBackToDashboard = () => {
-        setSelectedClient(null);
+        setSelectedClientId(null);
         setView("dashboard");
     };
 
