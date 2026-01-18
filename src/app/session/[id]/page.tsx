@@ -1,15 +1,73 @@
+
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Clock } from "lucide-react";
 import Link from "next/link";
 import { AudioVisualizer } from "@/components/session/AudioVisualizer";
-import { TranscriptStream } from "@/components/session/TranscriptStream";
+import { TranscriptStream, INITIAL_TRANSCRIPT } from "@/components/session/TranscriptStream";
 import { NoteEditor } from "@/components/session/NoteEditor";
+import { AIInsightPanel } from "@/components/session/AIInsightPanel";
 import { FloatingActions } from "@/components/ui/FloatingActions";
+import { cn } from "@/lib/utils";
+import { createSession } from "@/app/actions/sessions";
 
 export default function SessionPage() {
     const params = useParams();
+    const router = useRouter();
+    const [isRecording, setIsRecording] = useState(false);
+    const [showInsights, setShowInsights] = useState(false);
+
+    const [transcriptCount, setTranscriptCount] = useState(0);
+    const [notes, setNotes] = useState("");
+
+    // Session Timer Logic
+    const [duration, setDuration] = useState(0);
+    const SESSION_TARGET_MINUTES = 50; // Could be configurable later
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setDuration(prev => prev + 1);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} `;
+    };
+
+    const isOverTime = duration >= SESSION_TARGET_MINUTES * 60;
+
+    const handleEndSession = async () => {
+        if (!confirm("세션을 종료하시겠습니까? 상담 내용이 저장됩니다.")) return;
+
+        // Collect data
+        // For the simulation, we reconstruct the transcript based on what was "streamed"
+        const currentTranscript = INITIAL_TRANSCRIPT.slice(0, transcriptCount)
+            .map(item => `[${item.timestamp}] ${item.speaker === 'counselor' ? '상담사' : '내담자'}: ${item.text} `)
+            .join('\n');
+
+        const result = await createSession({
+            clientId: params.id as string,
+            title: `세션 #${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} `, // Simple auto-title
+            summary: "세션 요약 생성 중...", // Placeholder, ideally specific field or generated
+            sentiment: "Neutral", // Default/Placeholder
+            keywords: [],
+            transcript: currentTranscript,
+            notes: notes,
+            date: new Date(),
+        });
+
+        if (result.success) {
+            alert("세션이 성공적으로 저장되었습니다.");
+            router.push(`/patients/${params.id}`);
+        } else {
+            alert("세션 저장 실패: " + result.error);
+        }
+    };
 
     return (
         <div className="h-screen flex flex-col bg-[var(--color-warm-white)] overflow-hidden">
@@ -29,9 +87,24 @@ export default function SessionPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)] font-mono text-sm">
-                    <Clock className="w-4 h-4" />
-                    <span>14:23</span>
+                <div className="flex items-center gap-4">
+                    <div className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full font-mono text-sm transition-colors",
+                        isOverTime
+                            ? "bg-red-50 text-red-600 border border-red-200 animate-pulse"
+                            : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]"
+                    )}>
+                        <Clock className="w-4 h-4" />
+                        <span>{formatTime(duration)}</span>
+                        {isOverTime && <span className="text-[10px] font-bold">OVER</span>}
+                    </div>
+
+                    <button
+                        onClick={handleEndSession}
+                        className="px-4 py-1.5 bg-[var(--color-midnight-navy)] text-white text-sm font-medium rounded-full hover:bg-[var(--color-midnight-navy)]/90 transition-colors"
+                    >
+                        세션 종료
+                    </button>
                 </div>
             </header>
 
@@ -42,25 +115,37 @@ export default function SessionPage() {
                 <div className="flex-[4] flex flex-col gap-6 min-w-0">
                     {/* Visualizer Card */}
                     <div className="bg-white/80 p-6 rounded-2xl border border-[var(--color-midnight-navy)]/5 shadow-sm flex flex-col items-center justify-center gap-2">
-                        <span className="text-xs font-bold tracking-widest text-[var(--color-champagne-gold)] uppercase">Deep Listen Active</span>
-                        <AudioVisualizer />
+                        <span className="text-xs font-bold tracking-widest text-[var(--color-champagne-gold)] uppercase">
+                            {isRecording ? "Deep Listen Active" : "Ready to Listen"}
+                        </span>
+                        <AudioVisualizer isRecording={isRecording} />
                     </div>
 
                     {/* Transcript Stream */}
                     <div className="flex-1 min-h-0 relative">
-                        <TranscriptStream />
+                        <TranscriptStream
+                            isRecording={isRecording}
+                            onProgress={setTranscriptCount}
+                        />
                         {/* Gradient fade at bottom for elegance */}
                         <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none rounded-b-2xl" />
                     </div>
                 </div>
 
-                {/* Right: Zen Note Editor */}
-                <div className="flex-[5] flex flex-col min-w-0 h-full">
-                    <NoteEditor />
+                {/* Middle: Zen Note Editor (Resize based on sidebar) */}
+                <div className="flex-[5] flex flex-col min-w-0 h-full transition-all duration-300">
+                    <NoteEditor value={notes} onChange={setNotes} />
                 </div>
 
+                {/* Right: AI Insight Panel (Slide-in) */}
+                <AIInsightPanel isVisible={showInsights} transcriptCount={transcriptCount} />
+
                 {/* Floating Controls */}
-                <FloatingActions />
+                <FloatingActions
+                    isRecording={isRecording}
+                    onToggleRecording={() => setIsRecording(!isRecording)}
+                    onToggleInsights={() => setShowInsights(!showInsights)}
+                />
             </main>
         </div>
     );

@@ -5,7 +5,12 @@ import { Maximize2, Minimize2, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export function NoteEditor() {
+interface NoteEditorProps {
+    value?: string;
+    onChange?: (value: string) => void;
+}
+
+export function NoteEditor({ value, onChange }: NoteEditorProps) {
     const [isFocused, setIsFocused] = useState(false);
 
     return (
@@ -49,6 +54,8 @@ export function NoteEditor() {
                     className="flex-1 w-full p-6 resize-none outline-none text-[var(--color-midnight-navy)] text-base leading-relaxed placeholder:text-[var(--color-midnight-navy)]/30 bg-transparent font-serif"
                     placeholder="상담 내용을 자유롭게 기록하세요..."
                     autoFocus={isFocused}
+                    value={value}
+                    onChange={(e) => onChange?.(e.target.value)}
                 />
 
                 <div className="p-4 border-t border-[var(--color-midnight-navy)]/5 flex items-center justify-between text-xs text-[var(--color-midnight-navy)]/40">

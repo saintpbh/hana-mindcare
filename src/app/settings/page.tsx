@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { User, Bell, Monitor, Globe, Shield, LogOut, Camera, ChevronRight, Moon, Sun, Type, Send } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Bell, Monitor, Globe, Shield, LogOut, Camera, ChevronRight, Moon, Sun, Type, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { sendAppointmentReminder } from "@/services/smsService";
@@ -11,6 +11,7 @@ const TABS = [
     { id: "notifications", label: "알림 (Notifications)", icon: Bell },
     { id: "display", label: "화면 (Display)", icon: Monitor },
     { id: "general", label: "일반 (General)", icon: Globe },
+    { id: "ai", label: "AI 설정 (Intelligence)", icon: Sparkles },
 ];
 
 export default function SettingsPage() {
@@ -57,6 +58,7 @@ export default function SettingsPage() {
                             {activeTab === "notifications" && <NotificationSettings />}
                             {activeTab === "display" && <DisplaySettings />}
                             {activeTab === "general" && <GeneralSettings />}
+                            {activeTab === "ai" && <AISettings />}
                         </motion.div>
                     </div>
                 </div>
@@ -121,15 +123,35 @@ function AccountSettings() {
 }
 
 function NotificationSettings() {
+    // Initialize with safe defaults, then hydrate from localStorage
     const [toggles, setToggles] = useState({
         sessionReminder: true,
         communityAlerts: true,
         marketing: false,
-        emailDigest: true
+        emailDigest: true,
+        autoSms: false // New Toggle
     });
 
+    // Hydrate from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem("notification_settings");
+        if (saved) {
+            setToggles(JSON.parse(saved));
+        }
+    }, []);
+
     const handleToggle = (key: keyof typeof toggles) => {
-        setToggles(prev => ({ ...prev, [key]: !prev[key] }));
+        setToggles(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            localStorage.setItem("notification_settings", JSON.stringify(next));
+
+            // Show toast/alert for feedback based on Auto SMS
+            if (key === 'autoSms') {
+                if (next.autoSms) alert("자동 발송이 활성화되었습니다. (세션 30분 전 자동 발송)");
+                else alert("자동 발송이 꺼졌습니다. 수동으로 문자를 발송해야 합니다.");
+            }
+            return next;
+        });
     };
 
     const handleTestReminder = async () => {
@@ -144,9 +166,18 @@ function NotificationSettings() {
             <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">알림 설정</h3>
 
             <div className="space-y-6">
+                <div className="p-4 bg-[var(--color-midnight-navy)]/5 rounded-xl border border-[var(--color-midnight-navy)]/10">
+                    <ToggleItem
+                        label="리마인드 문자 자동 발송"
+                        desc="상담 30분 전에 환자에게 안내 문자를 자동으로 발송합니다."
+                        checked={toggles.autoSms}
+                        onChange={() => handleToggle("autoSms")}
+                    />
+                </div>
+
                 <ToggleItem
-                    label="세션 알림"
-                    desc="예정된 상담 세션 10분 전에 알림을 받습니다."
+                    label="세션 알림 (의사용)"
+                    desc="예정된 상담 세션 10분 전에 앱 푸시 알림을 받습니다."
                     checked={toggles.sessionReminder}
                     onChange={() => handleToggle("sessionReminder")}
                 />
@@ -228,31 +259,127 @@ function DisplaySettings() {
 
 function GeneralSettings() {
     return (
-        <div className="space-y-8">
-            <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">일반 설정</h3>
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-4">일반 설정</h3>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">언어</label>
+                        <select className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm">
+                            <option>한국어</option>
+                            <option>English</option>
+                        </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">시간대 (Timezone)</label>
+                        <select className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm">
+                            <option>Asia/Seoul (GMT+9)</option>
+                            <option>America/New_York (GMT-5)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
-            <div className="space-y-6">
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">언어 (Language)</label>
-                    <select className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-white text-sm">
-                        <option>한국어 (Korean)</option>
-                        <option>English</option>
-                    </select>
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">날짜 형식 (Date Format)</label>
-                    <select className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-white text-sm">
-                        <option>YYYY년 MM월 DD일</option>
-                        <option>MM/DD/YYYY</option>
-                        <option>DD/MM/YYYY</option>
-                    </select>
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">시간대 (Timezone)</label>
-                    <select className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-white text-sm">
-                        <option>Asia/Seoul (GMT+9)</option>
-                        <option>America/New_York (GMT-5)</option>
-                    </select>
+function AISettings() {
+    const [openaiKey, setOpenaiKey] = useState("");
+    const [geminiKey, setGeminiKey] = useState("");
+    const [selectedProvider, setSelectedProvider] = useState<"openai" | "gemini">("openai");
+
+    // Load from local storage on mount
+    useState(() => {
+        if (typeof window !== "undefined") {
+            setOpenaiKey(localStorage.getItem("openai_api_key") || "");
+            setGeminiKey(localStorage.getItem("gemini_api_key") || "");
+            setSelectedProvider((localStorage.getItem("ai_provider") as "openai" | "gemini") || "openai");
+        }
+    });
+
+    const handleSave = () => {
+        localStorage.setItem("openai_api_key", openaiKey);
+        localStorage.setItem("gemini_api_key", geminiKey);
+        localStorage.setItem("ai_provider", selectedProvider);
+        alert("AI 설정이 저장되었습니다.");
+    };
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">AI 모델 연동 설정</h3>
+                <p className="text-sm text-[var(--color-midnight-navy)]/60 mb-8 leading-relaxed">
+                    상담일지 자동 작성을 위해 AI 모델을 연동합니다. <br />
+                    API Key는 서버에 저장되지 않고 <strong>브라우저에만 저장</strong>되어 안전합니다.
+                </p>
+
+                <div className="space-y-8">
+                    {/* Provider Selection */}
+                    <div className="space-y-3">
+                        <label className="text-sm font-bold text-[var(--color-midnight-navy)]">기본 AI 모델 선택</label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <button
+                                onClick={() => setSelectedProvider("openai")}
+                                className={cn(
+                                    "p-4 rounded-xl border text-left transition-all",
+                                    selectedProvider === "openai"
+                                        ? "border-[var(--color-midnight-navy)] bg-[var(--color-midnight-navy)]/5 ring-1 ring-[var(--color-midnight-navy)]"
+                                        : "border-gray-200 hover:border-gray-300"
+                                )}
+                            >
+                                <div className="font-bold text-[var(--color-midnight-navy)] mb-1">OpenAI (ChatGPT)</div>
+                                <div className="text-xs text-gray-500">GPT-4o 모델 사용</div>
+                            </button>
+                            <button
+                                onClick={() => setSelectedProvider("gemini")}
+                                className={cn(
+                                    "p-4 rounded-xl border text-left transition-all",
+                                    selectedProvider === "gemini"
+                                        ? "border-[var(--color-midnight-navy)] bg-[var(--color-midnight-navy)]/5 ring-1 ring-[var(--color-midnight-navy)]"
+                                        : "border-gray-200 hover:border-gray-300"
+                                )}
+                            >
+                                <div className="font-bold text-[var(--color-midnight-navy)] mb-1">Google Gemini</div>
+                                <div className="text-xs text-gray-500">Gemini 1.5 Flash 사용</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* API Keys */}
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">OpenAI API Key</label>
+                            <input
+                                type="password"
+                                value={openaiKey}
+                                onChange={(e) => setOpenaiKey(e.target.value)}
+                                placeholder="sk-..."
+                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                            />
+                            <p className="text-xs text-gray-400">OpenAI Platform에서 발급받은 키를 입력하세요.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Gemini API Key</label>
+                            <input
+                                type="password"
+                                value={geminiKey}
+                                onChange={(e) => setGeminiKey(e.target.value)}
+                                placeholder="AIza..."
+                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                            />
+                            <p className="text-xs text-gray-400">Google AI Studio에서 발급받은 키를 입력하세요.</p>
+                        </div>
+                    </div>
+
+                    <div className="pt-4">
+                        <button
+                            onClick={handleSave}
+                            className="bg-[var(--color-midnight-navy)] text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors"
+                        >
+                            설정 저장하기
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

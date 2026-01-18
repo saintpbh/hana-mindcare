@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 
-export function AudioVisualizer() {
+export function AudioVisualizer({ isRecording = true }: { isRecording?: boolean }) {
     // Simulate 30 bars for the visualizer
     const bars = Array.from({ length: 30 });
 
@@ -12,13 +12,16 @@ export function AudioVisualizer() {
                 <motion.div
                     key={index}
                     className="w-1 rounded-full bg-[var(--color-champagne-gold)]"
-                    animate={{
+                    animate={isRecording ? {
                         height: [
                             "10%",
                             `${Math.random() * 80 + 20}%`,
                             "10%"
                         ],
                         opacity: [0.3, 1, 0.3],
+                    } : {
+                        height: "10%",
+                        opacity: 0.3
                     }}
                     transition={{
                         duration: 1.2,

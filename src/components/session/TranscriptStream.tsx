@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SpeakerBadge } from "./SpeakerBadge";
 import { cn } from "@/lib/utils";
@@ -13,28 +13,57 @@ interface TranscriptItem {
 }
 
 // Mock initial data
-const INITIAL_TRANSCRIPT: TranscriptItem[] = [
+export const INITIAL_TRANSCRIPT: TranscriptItem[] = [
     { id: "1", speaker: "counselor", text: "지난 세션 이후 기분은 좀 어떠셨어요?", timestamp: "10:00" },
     { id: "2", speaker: "patient", text: "음, 조금 나아진 것 같아요. 하지만 면접 생각을 하면 여전히 가슴이 답답해요.", timestamp: "10:01" },
     { id: "3", speaker: "counselor", text: "답답하다는 느낌... 좀 더 자세히 설명해 주실 수 있나요? 날카로운 느낌인가요, 아니면 무거운 느낌인가요?", timestamp: "10:02" },
     { id: "4", speaker: "patient", text: "무거운 돌이 얹혀있는 것 같아요. 가끔은 숨쉬기도 힘들고요.", timestamp: "10:02" },
 ];
 
-export function TranscriptStream() {
+export function TranscriptStream({
+    isRecording,
+    onProgress
+}: {
+    isRecording: boolean;
+    onProgress?: (count: number) => void;
+}) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [visibleCount, setVisibleCount] = useState(0);
 
     // Auto-scroll to bottom
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, []);
+    }, [visibleCount]);
+
+    // Sync visibleCount with parent
+    useEffect(() => {
+        onProgress?.(visibleCount);
+    }, [visibleCount, onProgress]);
+
+    // Simulate live transcription
+    useEffect(() => {
+        if (!isRecording) return;
+
+        const interval = setInterval(() => {
+            setVisibleCount(prev => {
+                if (prev < INITIAL_TRANSCRIPT.length) {
+                    return prev + 1;
+                }
+                clearInterval(interval);
+                return prev;
+            });
+        }, 3000); // New message every 3 seconds
+
+        return () => clearInterval(interval);
+    }, [isRecording]);
 
     return (
         <div className="flex flex-col h-full bg-white/50 rounded-2xl border border-[var(--color-midnight-navy)]/5 overflow-hidden backdrop-blur-sm">
             <div className="p-4 border-b border-[var(--color-midnight-navy)]/5 bg-white/40">
                 <h3 className="text-sm font-semibold text-[var(--color-midnight-navy)] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    {isRecording && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
                     실시간 대화 (Live Transcript)
                 </h3>
             </div>
@@ -44,7 +73,7 @@ export function TranscriptStream() {
                 className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth"
             >
                 <AnimatePresence>
-                    {INITIAL_TRANSCRIPT.map((item) => (
+                    {INITIAL_TRANSCRIPT.slice(0, visibleCount).map((item) => (
                         <motion.div
                             key={item.id}
                             initial={{ opacity: 0, y: 10 }}
@@ -68,6 +97,11 @@ export function TranscriptStream() {
                             </span>
                         </motion.div>
                     ))}
+                    {visibleCount === 0 && isRecording && (
+                        <div className="text-center text-[var(--color-midnight-navy)]/40 text-sm mt-10 animate-pulse">
+                            말씀을 듣고 있습니다...
+                        </div>
+                    )}
                 </AnimatePresence>
             </div>
         </div>

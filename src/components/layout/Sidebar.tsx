@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { LayoutGrid, Calendar, Users, Settings, BookOpen, MessageSquare, LogOut } from "lucide-react";
+import { LayoutGrid, Calendar, Users, Settings, BookOpen, MessageSquare, LogOut, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
     { icon: LayoutGrid, label: "대시보드", href: "/", active: true },
     { icon: Users, label: "내담자 관리", href: "/patients" },
+    { icon: FileText, label: "상담일지 관리", href: "/logs" },
     { icon: Calendar, label: "일정 관리", href: "/schedule" },
     { icon: BookOpen, label: "세린 라이브러리", href: "/library" },
     { icon: MessageSquare, label: "커뮤니티", href: "/community" },

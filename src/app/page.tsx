@@ -1,11 +1,14 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { IntelligentBriefing } from "@/components/dashboard/IntelligentBriefing";
-import { TodaysFlow } from "@/components/dashboard/TodaysFlow";
+import { SmartCalendar } from "@/components/calendar/SmartCalendar";
 import { RecentSignals } from "@/components/dashboard/RecentSignals";
 import { QuickNote } from "@/components/dashboard/QuickNote";
+import { getDashboardData } from "@/app/actions/dashboard";
 
-export default function Home() {
+export default async function Home() {
+  const data = await getDashboardData();
+
   return (
     <div className="flex min-h-screen bg-[var(--color-warm-white)]">
       <Sidebar />
@@ -16,24 +19,24 @@ export default function Home() {
 
             {/* Top: Intelligent Briefing */}
             <section>
-              <IntelligentBriefing />
+              <IntelligentBriefing clients={data.briefing} />
             </section>
 
             {/* Middle: Flow & Signals & Note */}
-            <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[600px]">
+            <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px] lg:flex-1">
 
-              {/* Today's Flow (Timeline) */}
-              <div className="lg:col-span-4 h-full">
-                <TodaysFlow />
+              {/* Smart Calendar (Month & Daily Agenda) */}
+              <div className="lg:col-span-4 h-full flex flex-col">
+                <SmartCalendar className="flex-1" />
               </div>
 
               {/* Center: Recent Signals */}
-              <div className="lg:col-span-5 h-full">
-                <RecentSignals />
+              <div className="lg:col-span-5 h-full flex flex-col">
+                <RecentSignals clients={data.signals} />
               </div>
 
               {/* Right: Quick Note */}
-              <div className="lg:col-span-3 h-full">
+              <div className="lg:col-span-3 h-full flex flex-col">
                 <QuickNote />
               </div>
 

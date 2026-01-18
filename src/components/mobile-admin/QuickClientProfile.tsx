@@ -1,17 +1,21 @@
 import { useState } from "react";
-import { Calendar, Clock, FileText, Phone, MoreVertical, Search, AlertCircle, Edit2, MapPin } from "lucide-react";
+import { Calendar, Clock, FileText, Phone, MoreVertical, Search, AlertCircle, Edit2, MapPin, Trash2 } from "lucide-react";
 import { usePersistence } from "@/hooks/usePersistence";
 import { type Client } from "@prisma/client";
 import { RescheduleModal } from "./RescheduleModal";
+import { QuickNoteModal } from "./QuickNoteModal";
 import { cn } from "@/lib/utils";
 
 interface QuickClientProfileProps {
     client: Client;
 }
 
+import { deleteQuickNote, restoreQuickNote } from "@/app/actions/clients";
+
 export function QuickClientProfile({ client }: QuickClientProfileProps) {
     const { updateClient } = usePersistence();
     const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
     // const handleReschedule = () => {
     //     const newDate = window.prompt("변경할 예약 날짜를 입력하세요 (YYYY-MM-DD):", client.nextSession);
@@ -21,11 +25,7 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
     // };
 
     const handleAddNote = () => {
-        const newNote = window.prompt("추가할 메모를 입력하세요:", "");
-        if (newNote) {
-            const updatedNotes = `${client.notes}\n[Mobile]: ${newNote}`;
-            updateClient({ ...client, notes: updatedNotes });
-        }
+        setIsNoteModalOpen(true);
     };
 
     const isCrisis = client.status === "crisis";
@@ -130,9 +130,46 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
 
                 <div className="bg-amber-50 rounded-xl p-4 mb-6 border border-amber-100">
                     <h4 className="text-xs font-bold text-amber-800 mb-2 uppercase tracking-wider">Memo / Notes</h4>
-                    <p className="text-sm text-amber-900/80 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
-                        {client.notes}
-                    </p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {/* Legacy Notes */}
+                        {client.notes && (
+                            <p className="text-sm text-amber-900/80 whitespace-pre-wrap leading-relaxed border-b border-amber-100 pb-2 mb-2">
+                                {client.notes}
+                            </p>
+                        )}
+
+                        {/* New Quick Notes */}
+                        {/* @ts-ignore - quickNotes might not be in the strict Client type yet, but injected by prisma include */}
+                        {client.quickNotes && client.quickNotes.length > 0 ? (
+                            // @ts-ignore
+                            client.quickNotes.map((note) => (
+                                <div key={note.id} className="text-sm text-amber-900/90 bg-white/50 p-2 rounded-lg border border-amber-100/50 shadow-sm relative group">
+                                    <p className="whitespace-pre-wrap leading-relaxed pr-6">{note.content}</p>
+                                    <span className="text-[10px] text-amber-800/40 mt-1 block">
+                                        {new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (confirm('메모를 삭제하시겠습니까?')) {
+                                                await deleteQuickNote(note.id);
+                                                // Optional "Undo" prompt immediately after 
+                                                // (User asked for Undo capability, this is the simplest "Undo" without new UI components)
+                                                if (confirm('메모가 삭제되었습니다. 되살리시겠습니까? (Undo)')) {
+                                                    await restoreQuickNote(note.id);
+                                                }
+                                            }
+                                        }}
+                                        className="absolute top-2 right-2 text-amber-800/20 hover:text-rose-500 transition-colors p-1"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            !client.notes && <p className="text-sm text-amber-900/40 italic">저장된 메모가 없습니다.</p>
+                        )}
+                    </div>
                 </div>
 
                 <div className="space-y-2">
@@ -183,6 +220,11 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
             <RescheduleModal
                 isOpen={isRescheduleOpen}
                 onClose={() => setIsRescheduleOpen(false)}
+                client={client}
+            />
+            <QuickNoteModal
+                isOpen={isNoteModalOpen}
+                onClose={() => setIsNoteModalOpen(false)}
                 client={client}
             />
         </>

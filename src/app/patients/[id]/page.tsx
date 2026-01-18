@@ -1,30 +1,60 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Clock, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, Clock, FileText, AlertCircle, Trash2 } from "lucide-react";
 import { ProfileHeader } from "@/components/patients/ProfileHeader";
 import { MoodCalendar } from "@/components/patients/MoodCalendar";
 import { useParams, useRouter } from "next/navigation";
 import { PrescriptionModal } from "@/components/library/PrescriptionModal";
 import { EditClientModal } from "@/components/patients/EditClientModal";
 import { MessageModal } from "@/components/patients/MessageModal";
-import { type Client } from "@prisma/client";
-import { usePersistence } from "@/hooks/usePersistence";
+import { getClientWithHistory, updateClient, terminateClient, deleteQuickNote, restoreQuickNote } from "@/app/actions/clients";
 import { useEffect, useState } from "react";
+import { type Client, type Session } from "@prisma/client";
+
+// Extended type to include sessions and quickNotes
+type ClientWithSessions = Client & {
+    sessions: Session[];
+    quickNotes: { id: string; content: string; createdAt: Date }[];
+};
 
 export default function PatientPage() {
     const params = useParams();
     const router = useRouter();
-    const { getClient, updateClient, isLoaded } = usePersistence();
-    const [client, setClient] = useState<Client | undefined>(undefined);
+    const [client, setClient] = useState<ClientWithSessions | null>(null);
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
     const [isPrescribeOpen, setIsPrescribeOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isMessageOpen, setIsMessageOpen] = useState(false);
-    const handleSaveProfile = (updatedClient: Client) => {
-        updateClient(updatedClient);
-        setClient(updatedClient);
-        setIsEditOpen(false);
+
+    useEffect(() => {
+        const fetchClient = async () => {
+            if (typeof params.id === 'string') {
+                console.log("Fetching client with param ID:", params.id);
+                const result = await getClientWithHistory(params.id);
+                console.log("Fetch result:", result);
+
+                if (result.success && result.data) {
+                    setClient(result.data as ClientWithSessions);
+                } else {
+                    console.error("Failed to load client data");
+                }
+                setIsLoaded(true);
+            }
+        };
+        fetchClient();
+    }, [params.id]);
+
+    const handleSaveProfile = async (updatedClient: Client) => {
+        if (!client) return;
+        const result = await updateClient(client.id, updatedClient);
+        if (result.success && result.data) {
+            // Re-fetch to get consistent state or just update local
+            setClient(prev => prev ? { ...prev, ...result.data } : null);
+            setIsEditOpen(false);
+        }
     };
 
     const handleStartSession = () => {
@@ -35,15 +65,30 @@ export default function PatientPage() {
         router.push("/schedule");
     };
 
+    const handleTerminate = async () => {
+        if (!client) return;
+        if (!confirm(`${client.name}님의 상담을 종결하시겠습니까?\n종결 후에는 '종결된 상담' 목록에서 확인할 수 있습니다.`)) return;
+
+        const result = await terminateClient(client.id);
+        if (result.success) {
+            alert("상담이 종결되었습니다.");
+            // Refresh client data
+            setClient(prev => prev ? { ...prev, status: 'terminated' } : null);
+        } else {
+            alert("처리 중 오류가 발생했습니다.");
+        }
+    };
+
+    const handleCareMessage = () => {
+        if (!client) return;
+        const msg = `[Hana Mindcare Care]\n안녕하세요, ${client.name}님. 잘 지내고 계신가요?\n요즘 컨디션은 어떠신지 궁금하여 연락드립니다.`;
+        // In real app, open modal with this text pre-filled
+        alert(`[안부 문자 발송 시뮬레이션]\n\n받는 사람: ${client.name}\n내용:\n${msg}`);
+    };
+
     if (!isLoaded) {
         return <div className="min-h-screen bg-[var(--color-warm-white)]" />;
     }
-
-    useEffect(() => {
-        if (isLoaded && typeof params.id === 'string') {
-            setClient(getClient(params.id));
-        }
-    }, [isLoaded, params.id, getClient]);
 
     if (!client) {
         return (
@@ -76,7 +121,10 @@ export default function PatientPage() {
                     onSchedule={handleSchedule}
                     onEdit={() => setIsEditOpen(true)}
                     onMessage={() => setIsMessageOpen(true)}
+                    onTerminate={handleTerminate}
+                    onCareMessage={handleCareMessage}
                 />
+
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left: Mood & Stats */}
@@ -88,53 +136,129 @@ export default function PatientPage() {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-[var(--color-midnight-navy)]/60">총 세션 횟수</span>
-                                    <span className="font-medium text-[var(--color-midnight-navy)]">24회</span>
+                                    <span className="font-medium text-[var(--color-midnight-navy)]">
+                                        {client.sessions?.length || 0}회
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-[var(--color-midnight-navy)]/60">결석 (No-show)</span>
-                                    <span className="font-medium text-[var(--color-midnight-navy)]">1회</span>
+                                    <span className="font-medium text-[var(--color-midnight-navy)]">0회</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-[var(--color-midnight-navy)]/60">평균 세션 시간</span>
-                                    <span className="font-medium text-[var(--color-midnight-navy)]">52분</span>
+                                    <span className="font-medium text-[var(--color-midnight-navy)]">50분</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right: Session History */}
-                    <div className="lg:col-span-2 space-y-4">
-                        <h3 className="font-semibold text-[var(--color-midnight-navy)] text-lg">최근 세션 기록 (History)</h3>
+                    {/* Right: Session History & Notes */}
+                    <div className="lg:col-span-2 space-y-8">
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-[var(--color-midnight-navy)] text-lg">최근 세션 기록 (History)</h3>
 
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="bg-white p-5 rounded-xl border border-[var(--color-midnight-navy)]/5 shadow-sm hover:border-[var(--color-champagne-gold)]/30 transition-colors cursor-pointer group">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <h4 className="font-medium text-[var(--color-midnight-navy)] group-hover:text-[var(--color-champagne-gold)] transition-colors">
-                                            적응적 대처 전략 훈련
-                                        </h4>
-                                        <div className="flex items-center gap-2 text-xs text-[var(--color-midnight-navy)]/40 mt-1">
-                                            <Clock className="w-3 h-3" />
-                                            <span>2024년 10월 {24 - i * 7}일</span>
-                                            <span>•</span>
-                                            <span>세션 #{12 - i}</span>
+                            {(!client.sessions || client.sessions.length === 0) ? (
+                                <div className="text-center py-10 text-gray-500">기록된 세션이 없습니다.</div>
+                            ) : (
+                                <>
+                                    {client.sessions.slice(0, isHistoryExpanded ? undefined : 4).map((session) => (
+                                        <Link key={session.id} href={`/patients/${client.id}/sessions/${session.id}`} className="block group">
+                                            <div className="bg-white p-5 rounded-xl border border-[var(--color-midnight-navy)]/5 shadow-sm hover:border-[var(--color-champagne-gold)]/30 transition-colors cursor-pointer mb-4">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <h4 className="font-medium text-[var(--color-midnight-navy)] group-hover:text-[var(--color-champagne-gold)] transition-colors">
+                                                            {session.title}
+                                                        </h4>
+                                                        <div className="flex items-center gap-2 text-xs text-[var(--color-midnight-navy)]/40 mt-1">
+                                                            <Clock className="w-3 h-3" />
+                                                            <span>{new Date(session.date).toLocaleDateString()}</span>
+                                                            <span>•</span>
+                                                            <span>{session.sentiment}</span>
+                                                        </div>
+                                                    </div>
+                                                    <span className="px-2 py-1 bg-[var(--color-warm-white)] rounded text-[10px] font-medium text-[var(--color-midnight-navy)]/60 uppercase">
+                                                        분석 완료
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-[var(--color-midnight-navy)]/70 line-clamp-2">
+                                                    {session.summary}
+                                                </p>
+                                                <div className="mt-4 flex gap-2">
+                                                    <div className="text-xs flex items-center gap-1 font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]">
+                                                        <FileText className="w-3 h-3" />
+                                                        상담 노트 보기
+                                                    </div>
+                                                    <div className="flex gap-1 ml-auto">
+                                                        {session.keywords.map((k: string) => (
+                                                            <span key={k} className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">#{k}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+
+                                    {client.sessions.length > 4 && (
+                                        <div className="flex justify-center mt-4">
+                                            <button
+                                                onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                                                className="px-4 py-2 text-sm font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)] bg-white border border-[var(--color-midnight-navy)]/10 rounded-lg hover:bg-[var(--color-midnight-navy)]/5 transition-colors"
+                                            >
+                                                {isHistoryExpanded ? "접기" : `전체 보기 (${client.sessions.length})`}
+                                            </button>
                                         </div>
-                                    </div>
-                                    <span className="px-2 py-1 bg-[var(--color-warm-white)] rounded text-[10px] font-medium text-[var(--color-midnight-navy)]/60 uppercase">
-                                        분석 완료
-                                    </span>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Quick Notes Section */}
+                        <div className="pt-4 border-t border-[var(--color-midnight-navy)]/5">
+                            <h3 className="font-semibold text-[var(--color-midnight-navy)] text-lg mb-4 flex items-center gap-2">
+                                수시 메모 (Quick Notes)
+                                <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">Mobile Sync</span>
+                            </h3>
+                            {(!client.quickNotes || client.quickNotes.length === 0) ? (
+                                <div className="text-center py-4 text-gray-400 text-sm italic">저장된 메모가 없습니다.</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {client.quickNotes.map(note => (
+                                        <div key={note.id} className="bg-amber-50 p-4 rounded-xl border border-amber-100 relative group">
+                                            <p className="text-sm text-amber-900/90 whitespace-pre-wrap leading-relaxed pr-6">{note.content}</p>
+                                            <span className="text-xs text-amber-800/50 mt-2 block flex justify-between">
+                                                <span>{new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            </span>
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm('메모를 삭제하시겠습니까?')) {
+                                                        const res = await deleteQuickNote(note.id);
+                                                        if (res.success) {
+                                                            // Refresh local state if needed or rely on re-fetch
+                                                            setClient(prev => prev ? {
+                                                                ...prev,
+                                                                quickNotes: prev.quickNotes.filter(n => n.id !== note.id)
+                                                            } : null);
+
+                                                            if (confirm('삭제되었습니다. 되살리시겠습니까? (Undo)')) {
+                                                                const restoreRes = await restoreQuickNote(note.id);
+                                                                if (restoreRes.success) {
+                                                                    // Optimistically add back if we have full object, but simpler to reload
+                                                                    const result = await getClientWithHistory(client.id);
+                                                                    if (result.success && result.data) setClient(result.data as ClientWithSessions);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }}
+                                                className="absolute top-4 right-4 text-amber-800/20 hover:text-rose-500 transition-colors hidden group-hover:block"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                                <p className="text-sm text-[var(--color-midnight-navy)]/70 line-clamp-2">
-                                    직장에서 발생한 갈등 상황에 대해 논의함. '잠시 멈춤' 기법을 연습하였으며, 지난주(7/10) 대비 불안 수준(4/10)이 감소했다고 보고함.
-                                </p>
-                                <div className="mt-4 flex gap-2">
-                                    <button className="text-xs flex items-center gap-1 font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]">
-                                        <FileText className="w-3 h-3" />
-                                        상담 노트 보기
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -157,6 +281,6 @@ export default function PatientPage() {
                 onClose={() => setIsMessageOpen(false)}
                 client={client}
             />
-        </div>
+        </div >
     );
 }

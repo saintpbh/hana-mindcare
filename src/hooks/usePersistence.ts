@@ -87,12 +87,31 @@ export function usePersistence() {
         return clients.find((c) => c.id === clientId);
     };
 
+    const terminateClient = async (clientId: string) => {
+        // Optimistic Update
+        setClients(prev => prev.map(c => c.id === clientId ? { ...c, status: 'terminated', terminatedAt: new Date() } : c));
+        setSyncStatus("saving");
+
+        const result = await import("@/app/actions/clients").then(mod => mod.terminateClient(clientId));
+
+        if (result.success) {
+            setSyncStatus("synced");
+            if (result.data) {
+                setClients(prev => prev.map(c => c.id === result.data!.id ? result.data! : c));
+            }
+        } else {
+            setSyncStatus("error");
+            fetchClients();
+        }
+    };
+
     return {
         clients,
         isLoaded,
         addClient,
         updateClient,
         deleteClient,
+        terminateClient,
         getClient,
         syncStatus
     };

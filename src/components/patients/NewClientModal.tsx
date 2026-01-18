@@ -39,7 +39,8 @@ export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalPr
             isSessionCanceled: false,
             location: null,
             tags: [],
-            notes: notes || "상담 초기 단계입니다."
+            notes: notes || "상담 초기 단계입니다.",
+            terminatedAt: null
         };
 
         onRegister(newClient);

@@ -8,9 +8,10 @@ import { type Client } from "@prisma/client";
 
 interface MobileScheduleProps {
     onSelectClient: (client: Client) => void;
+    onViewCalendar?: () => void;
 }
 
-export function MobileSchedule({ onSelectClient }: MobileScheduleProps) {
+export function MobileSchedule({ onSelectClient, onViewCalendar }: MobileScheduleProps) {
     const { clients, isLoaded } = usePersistence();
     const [activeTab, setActiveTab] = useState<"today" | "week" | "month">("week");
 
@@ -44,7 +45,16 @@ export function MobileSchedule({ onSelectClient }: MobileScheduleProps) {
 
     return (
         <div className="space-y-4">
-            <h3 className="font-semibold text-[var(--color-midnight-navy)] px-1">예정된 일정</h3>
+            <div className="flex items-center justify-between px-1">
+                <h3 className="font-semibold text-[var(--color-midnight-navy)]">예정된 일정</h3>
+                {/* <button
+                    onClick={onViewCalendar}
+                    className="text-xs font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)] flex items-center gap-1 bg-white px-3 py-1.5 rounded-full border border-[var(--color-midnight-navy)]/5 shadow-sm"
+                >
+                    <CalendarOff className="w-3.5 h-3.5" />
+                    <span>달력 보기</span>
+                </button> */}
+            </div>
 
             {/* Tabs */}
             <div className="flex bg-gray-100 p-1 rounded-xl mb-4">

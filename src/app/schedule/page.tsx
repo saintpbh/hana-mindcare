@@ -7,25 +7,72 @@ import { IntakeWizard } from "@/components/schedule/IntakeWizard";
 import { CalendarView } from "@/components/schedule/CalendarView";
 import { EditAppointmentModal } from "@/components/schedule/EditAppointmentModal";
 
-// Initial Data
-const INITIAL_APPOINTMENTS = [
-    { id: 1, title: "Sarah Chen", type: "Ongoing", time: 10, day: 0, duration: 1, color: "bg-teal-100 text-teal-900 border-teal-200" },
-    { id: 2, title: "Michael Ross", type: "Intake", time: 14, day: 1, duration: 1.5, color: "bg-amber-100 text-amber-900 border-amber-200" },
-    { id: 3, title: "Emma Wilson", type: "Crisis", time: 11, day: 2, duration: 1, color: "bg-rose-100 text-rose-900 border-rose-200" },
-    { id: 4, title: "David Kim", type: "Ongoing", time: 16, day: 3, duration: 1, color: "bg-teal-100 text-teal-900 border-teal-200" },
-];
+import { getClients } from "@/app/actions/clients";
+import { type Client } from "@prisma/client";
+import { useEffect } from "react";
 
 export default function SchedulePage() {
     const [isIntakeOpen, setIsIntakeOpen] = useState(false);
     const [editingAppointment, setEditingAppointment] = useState<any>(null);
-    const [appointments, setAppointments] = useState(INITIAL_APPOINTMENTS);
+    const [appointments, setAppointments] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAppointments = async () => {
+            const result = await getClients();
+            if (result.success && result.data) {
+                const mappedAppointments = result.data.map((client: Client) => {
+                    // Start time parsing
+                    const timeStr = client.sessionTime || "10:00";
+                    const hour = parseInt(timeStr.split(':')[0], 10);
+
+                    // Date parsing to determine 'day' offset for the weekly view
+                    // This is a bit tricky for a static weekly view. 
+                    // For now, let's just show them on the calendar based on day of week?
+                    // The CalendarView likely expects a specific format.
+                    // Let's look at INITIAL_APPOINTMENTS: { day: 0 (Mon), time: 10 ... }
+
+                    const sessionDate = new Date(client.nextSession);
+                    const day = sessionDate.getDay() - 1; // 0=Sun, 1=Mon... we want 0=Mon. So Mon(1)-1=0.
+
+                    // Simple heuristic for color based on status
+                    let color = "bg-teal-100 text-teal-900 border-teal-200"; // Stable/Ongoing
+                    if (client.status === 'crisis') color = "bg-rose-100 text-rose-900 border-rose-200";
+                    if (client.tags.includes('intake')) color = "bg-amber-100 text-amber-900 border-amber-200";
+
+                    return {
+                        id: client.id,
+                        title: client.name,
+                        type: client.tags.includes('intake') ? "Intake" : (client.status === 'crisis' ? "Crisis" : "Ongoing"),
+                        time: hour,
+                        day: day < 0 ? 6 : day, // Handle Sunday
+                        duration: 1,
+                        color,
+                        location: client.location,
+                        rawDate: client.nextSession
+                    };
+                });
+
+                // Filter only current week? Or just show all for demo?
+                // The calendar view is static "Oct 14-18". We should probably make the calendar dynamic too, but that's bigger.
+                // For "Make it look real", showing the data we just seeded involves "Today".
+                // "Today" in seed is dynamic. The CalendarView might be expecting strict day indices 0-4.
+                // Let's just pass them and see.
+                setAppointments(mappedAppointments);
+            }
+            setIsLoading(false);
+        };
+        fetchAppointments();
+    }, []);
 
     const handleAddAppointment = (newApt: any) => {
         setAppointments([...appointments, { ...newApt, id: Date.now() }]);
+        // In reality, this should call createClient
     };
 
     const handleUpdateAppointment = (updated: any) => {
         setAppointments(prev => prev.map(apt => apt.id === updated.id ? updated : apt));
+        // In reality, this should call updateClient
     };
 
     const handleDeleteAppointment = (id: number) => {

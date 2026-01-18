@@ -53,7 +53,10 @@ export default function PatientsPage() {
                     </Link>
                     <div>
                         <h1 className="text-2xl font-serif text-[var(--color-midnight-navy)]">내담자 관리</h1>
-                        <p className="text-sm text-[var(--color-midnight-navy)]/60">등록된 내담자의 상태와 기록을 관리합니다.</p>
+                        <p className="text-sm text-[var(--color-midnight-navy)]/60">
+                            등록된 내담자의 상태와 기록을 관리합니다.
+                            {isLoaded && <span className="ml-2 px-2 py-0.5 bg-[var(--color-midnight-navy)]/5 rounded-full text-xs">Total: {clients.length}</span>}
+                        </p>
                     </div>
                 </div>
                 <button

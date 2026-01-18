@@ -19,10 +19,63 @@ model Client {
   sessionTime       String
   location          String?
   isSessionCanceled Boolean  @default(false)
+  terminatedAt      DateTime? // Date when counseling was terminated
   tags              String[]
   notes             String
   contact           String
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  sessions          Session[]
+  quickNotes        QuickNote[]
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  date        DateTime
+  title       String   // e.g., "Initial Consultation", "CBT Session 1"
+  summary     String   @db.Text
+  sentiment   String   // 'Positive', 'Neutral', 'Negative'
+  keywords    String[] // e.g., ["anxiety", "work", "sleep"]
+  
+  transcript  String?  @db.Text // Verbatim transcript
+  notes       String?  @db.Text // Counselor's session notes
+  counselingLog CounselingLog?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CounselingLog {
+  id          String   @id @default(uuid())
+  sessionId   String   @unique
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  type        String   @default("SOAP") // 'SOAP', 'GENERAL'
+  
+  // SOAP Fields
+  subjective  String?  @db.Text
+  objective   String?  @db.Text
+  assessment  String?  @db.Text
+  plan        String?  @db.Text
+  
+  status      String   @default("DRAFT") // 'DRAFT', 'FINAL'
+  writerName  String?
+  signedAt    DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model QuickNote {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  deletedAt DateTime? // For soft delete
 }
