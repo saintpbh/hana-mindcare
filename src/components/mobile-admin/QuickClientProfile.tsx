@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, Clock, FileText, Phone, MoreVertical, Search, AlertCircle, Edit2 } from "lucide-react";
+import { Calendar, Clock, FileText, Phone, MoreVertical, Search, AlertCircle, Edit2, MapPin } from "lucide-react";
 import { usePersistence } from "@/hooks/usePersistence";
 import { Client } from "@/data/mockClients";
 import { RescheduleModal } from "./RescheduleModal";
@@ -46,6 +46,24 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
         window.location.href = `tel:${client.contact}`;
     };
 
+    const handleLocationChange = () => {
+        // Simple prompt for now, or could use a modal like RescheduleModal in future
+        // Ideally, this should be a selector, but prompts are quick for "Admin On The Go"
+        // Let's use a standard JS confirm/prompt equivalent for simplicity since we don't have a LocationModal yet.
+        // Or better, let's just cycle through locations or show a prompt with current value.
+
+        // Let's implement a simple cycle for "Fast Action" or a prompt.
+        // Prompt is safer for arbitrary values, but client asked for Seolleung, Yangjae, Nonhyeon.
+        // Let's use a prompt that suggests typing one of them.
+
+        const currentLoc = client.location || "";
+        const newLoc = window.prompt(`상담 장소를 입력하세요.\n(현재: ${currentLoc || "미정"})\n예: 선릉 센터, 양재 센터, 논현 센터`, currentLoc);
+
+        if (newLoc !== null) { // If not cancelled
+            updateClient({ ...client, location: newLoc });
+        }
+    };
+
     return (
         <>
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-midnight-navy)]/5 relative overflow-hidden">
@@ -57,21 +75,28 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                         <div>
                             <div className="flex items-center gap-2">
                                 <h2 className="text-xl font-bold text-[var(--color-midnight-navy)]">{client.name}</h2>
-                                {client.isSessionCanceled && (
-                                    <span className="text-[10px] font-bold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded">취소됨</span>
+                                {client.location && (
+                                    <span className="text-xs font-medium text-[var(--color-midnight-navy)]/50 flex items-center gap-0.5">
+                                        <MapPin className="w-3 h-3" />
+                                        {client.location}
+                                    </span>
                                 )}
                             </div>
-
-                            {isCrisis ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 text-rose-600 text-xs font-bold mt-1">
-                                    <AlertCircle className="w-3 h-3" />
-                                    Crisis : 주의 요망
-                                </span>
-                            ) : (
-                                <span className="inline-block px-2 py-0.5 rounded-md bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/60 text-xs font-bold mt-1">
-                                    {client.status}
-                                </span>
-                            )}
+                            <div className="mt-1">
+                                {client.isSessionCanceled && (
+                                    <span className="text-[10px] font-bold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded mr-2">취소됨</span>
+                                )}
+                                {isCrisis ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 text-rose-600 text-xs font-bold">
+                                        <AlertCircle className="w-3 h-3" />
+                                        Crisis
+                                    </span>
+                                ) : (
+                                    <span className="inline-block px-2 py-0.5 rounded-md bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/60 text-xs font-bold">
+                                        {client.status}
+                                    </span>
+                                )}
+                            </div>
 
                         </div>
                     </div>
@@ -81,16 +106,19 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className="bg-[var(--color-warm-white)]/50 p-3 rounded-xl border border-[var(--color-midnight-navy)]/5">
-                        <span className="text-xs text-[var(--color-midnight-navy)]/40 block mb-1">최근 상담</span>
-                        <span className="font-medium text-[var(--color-midnight-navy)]">{client.lastSession}</span>
+                    <div className="bg-[var(--color-warm-white)]/50 p-3 rounded-xl border border-[var(--color-midnight-navy)]/5 relative group cursor-pointer" onClick={handleLocationChange}>
+                        <Edit2 className="w-3 h-3 absolute top-2 right-2 text-[var(--color-midnight-navy)]/20" />
+                        <span className="text-xs text-[var(--color-midnight-navy)]/40 block mb-1">상담 장소</span>
+                        <span className="font-medium text-[var(--color-midnight-navy)] flex items-center gap-1">
+                            {client.location || "미정"}
+                        </span>
                     </div>
                     <div
                         onClick={() => setIsRescheduleOpen(true)}
                         className="bg-[var(--color-warm-white)]/50 p-3 rounded-xl border border-[var(--color-midnight-navy)]/5 active:bg-[var(--color-midnight-navy)]/5 cursor-pointer relative group"
                     >
                         <Edit2 className="w-3 h-3 absolute top-2 right-2 text-[var(--color-midnight-navy)]/20" />
-                        <span className="text-xs text-[var(--color-midnight-navy)]/40 block mb-1">다음 예약 (터치하여 변경)</span>
+                        <span className="text-xs text-[var(--color-midnight-navy)]/40 block mb-1">다음 예약</span>
                         <div className="flex items-center gap-1">
                             <span className={cn("font-medium text-[var(--color-midnight-navy)]", client.isSessionCanceled && "line-through opacity-50")}>
                                 {client.nextSession}
@@ -110,11 +138,11 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                 <div className="space-y-2">
                     <div className="flex gap-2">
                         <button
-                            onClick={() => setIsRescheduleOpen(true)}
+                            onClick={handleLocationChange}
                             className="flex-1 py-3 bg-[var(--color-midnight-navy)] text-white rounded-xl font-medium flex items-center justify-center gap-2 shadow-lg shadow-[var(--color-midnight-navy)]/20 active:scale-[0.98] transition-transform"
                         >
-                            <Calendar className="w-4 h-4" />
-                            일정 변경
+                            <MapPin className="w-4 h-4" />
+                            장소 변경
                         </button>
                         {!client.isSessionCanceled && (
                             <button
@@ -128,11 +156,11 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
 
                     <div className="grid grid-cols-2 gap-2">
                         <button
-                            onClick={handleAddNote}
+                            onClick={() => setIsRescheduleOpen(true)}
                             className="py-3 bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] rounded-xl font-medium flex items-center justify-center gap-2 active:bg-gray-50"
                         >
-                            <FileText className="w-4 h-4" />
-                            간편 메모
+                            <Calendar className="w-4 h-4" />
+                            일정 변경
                         </button>
                         <button
                             onClick={handleCall}
@@ -142,6 +170,13 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                             통화하기
                         </button>
                     </div>
+                    <button
+                        onClick={handleAddNote}
+                        className="w-full py-3 bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] rounded-xl font-medium flex items-center justify-center gap-2 active:bg-gray-50 bg-amber-50/50"
+                    >
+                        <FileText className="w-4 h-4" />
+                        간편 메모 입력
+                    </button>
                 </div>
             </div>
 

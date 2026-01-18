@@ -102,6 +102,11 @@ export function MobileSchedule({ onSelectClient }: MobileScheduleProps) {
                                 <div className="flex-1">
                                     <h4 className={cn("font-bold text-[var(--color-midnight-navy)] flex items-center gap-2", isCanceled && "line-through text-gray-400")}>
                                         {client.name}
+                                        {client.location && (
+                                            <span className="text-xs font-normal text-gray-500 no-underline">
+                                                @{client.location.split(' ')[0]}
+                                            </span>
+                                        )}
                                     </h4>
 
                                     {isCanceled ? (

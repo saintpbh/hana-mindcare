@@ -19,6 +19,7 @@ export function EditClientModal({ isOpen, onClose, onSave, client }: EditClientM
     const [age, setAge] = useState("");
     const [gender, setGender] = useState<"Male" | "Female">("Female");
     const [contact, setContact] = useState("");
+    const [location, setLocation] = useState("");
     const [condition, setCondition] = useState("");
     const [status, setStatus] = useState<"stable" | "attention" | "crisis">("attention");
     const [notes, setNotes] = useState("");
@@ -31,6 +32,7 @@ export function EditClientModal({ isOpen, onClose, onSave, client }: EditClientM
             setAge(client.age.toString());
             setGender(client.gender);
             setContact(client.contact);
+            setLocation(client.location || "");
             setCondition(client.condition);
             setStatus(client.status);
             setNotes(client.notes);
@@ -47,6 +49,7 @@ export function EditClientModal({ isOpen, onClose, onSave, client }: EditClientM
             age: parseInt(age),
             gender,
             contact,
+            location,
             condition,
             status,
             notes
@@ -137,15 +140,30 @@ export function EditClientModal({ isOpen, onClose, onSave, client }: EditClientM
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">연락처 (Contact)</label>
-                            <input
-                                type="text"
-                                value={contact}
-                                onChange={(e) => setContact(e.target.value)}
-                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
-                                placeholder="010-1234-5678"
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">연락처 (Contact)</label>
+                                <input
+                                    type="text"
+                                    value={contact}
+                                    onChange={(e) => setContact(e.target.value)}
+                                    className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
+                                    placeholder="010-1234-5678"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">상담 장소 (Location)</label>
+                                <select
+                                    value={location}
+                                    onChange={(e) => setLocation(e.target.value)}
+                                    className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
+                                >
+                                    <option value="">(미정)</option>
+                                    <option value="선릉 센터">선릉 센터</option>
+                                    <option value="양재 센터">양재 센터</option>
+                                    <option value="논현 센터">논현 센터</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div className="border-t border-[var(--color-midnight-navy)]/5 my-4" />

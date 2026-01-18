@@ -9,6 +9,7 @@ export interface Client {
     lastSession: string;
     nextSession: string;
     sessionTime: string; // New field for time slot
+    location?: string; // New field for session location
     isSessionCanceled?: boolean; // New field for cancellation status
     tags: string[];
     notes: string;
@@ -34,6 +35,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-7),
         nextSession: getRelativeDate(0), // Today
         sessionTime: "14:00",
+        location: "선릉 센터",
         isSessionCanceled: false,
         tags: ["Anxiety", "Work Stress", "Insomnia"],
         notes: "최근 직장 내 프로젝트 압박으로 인한 수면 장애 호소. 이완 요법 적용 중.",
@@ -50,6 +52,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-5),
         nextSession: getRelativeDate(0), // Today
         sessionTime: "16:00",
+        location: "양재 센터",
         isSessionCanceled: false,
         tags: ["Depression", "Self-Esteem"],
         notes: "약물 치료와 병행하며 상태 호전 중. 인지 왜곡 수정 작업 진행.",
@@ -66,6 +69,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-2),
         nextSession: getRelativeDate(1), // Tomorrow (This Week)
         sessionTime: "10:00",
+        location: "논현 센터",
         isSessionCanceled: false,
         tags: ["Trauma", "Avoidance"],
         notes: "교통사고 후 운전 공포증 지속. 최근 플래시백 빈도 증가로 위기 개입 필요.",
@@ -82,6 +86,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-14),
         nextSession: getRelativeDate(2), // +2 Days (This Week)
         sessionTime: "11:00",
+        location: "선릉 센터",
         isSessionCanceled: false,
         tags: ["Social Skills", "University"],
         notes: "대학 발표 과제 수행 성공. 긍정적 강화 필요.",
@@ -98,6 +103,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-3),
         nextSession: getRelativeDate(3), // +3 Days (This Week)
         sessionTime: "15:00",
+        location: "양재 센터",
         isSessionCanceled: false,
         tags: ["Mood Swings", "Manic"],
         notes: "경조증 삽화 조짐 보임. 수면 시간 체크 필수.",
@@ -114,6 +120,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-10),
         nextSession: getRelativeDate(5), // +5 Days (This Week/Next Week boundary)
         sessionTime: "09:00",
+        location: "논현 센터",
         isSessionCanceled: true, // Mock Canceled
         tags: ["Panic Formatting", "CBT"],
         notes: "광장 공포증 많이 완화됨. 대중교통 이용 시도 중.",
@@ -130,6 +137,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-7),
         nextSession: getRelativeDate(8), // +8 Days (Next Week / Month)
         sessionTime: "17:00",
+        location: "선릉 센터",
         isSessionCanceled: false,
         tags: ["Focus", "Impulsivity"],
         notes: "학업 집중 어려움 호소. 플래너 사용 훈련 중이나 지속성이 떨어짐.",
@@ -146,6 +154,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-20),
         nextSession: getRelativeDate(12), // +12 Days (Month)
         sessionTime: "13:00",
+        location: "양재 센터",
         isSessionCanceled: false,
         tags: ["Family", "Bereavement"],
         notes: "어머니 사별 후 애도 과정 중. 감정 표현이 좀 더 자유로워짐.",
@@ -162,6 +171,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-1),
         nextSession: getRelativeDate(15), // +15 Days (Month)
         sessionTime: "19:00",
+        location: "논현 센터",
         isSessionCanceled: false,
         tags: ["Addiction", "Relapse"],
         notes: "재발 위험 높음. 최근 음주 욕구 강하게 느낌. AA 모임 참여 독려.",
@@ -178,6 +188,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: getRelativeDate(-4),
         nextSession: getRelativeDate(20), // +20 Days (Month)
         sessionTime: "15:00",
+        location: "선릉 센터",
         isSessionCanceled: false,
         tags: ["Body Image", "Anorexia"],
         notes: "식사 일지 기록 양호하나 체중 강박 여전함.",
@@ -195,6 +206,7 @@ export const MOCK_CLIENTS: Client[] = [
         lastSession: "2024-10-10",
         nextSession: getRelativeDate(25), // +25 Days (Month)
         sessionTime: "11:00",
+        location: "양재 센터",
         isSessionCanceled: false,
         tags: ["Compulsion", "Anxiety"],
         notes: "확인 강박 행동 빈도 감소. 노출 및 반응 방지 치료 효과적.",
