@@ -36,6 +36,7 @@ export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalPr
             status,
             lastSession: "없음",
             nextSession: "미정",
+            sessionTime: "10:00", // Added this line
             tags: ["신규 (New)"],
             notes: notes || "상담 초기 단계입니다."
         };
