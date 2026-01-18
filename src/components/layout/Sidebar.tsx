@@ -1,9 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LayoutGrid, Calendar, Users, Settings, BookOpen, MessageSquare, LogOut, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-    { icon: LayoutGrid, label: "대시보드", href: "/", active: true },
+    { icon: LayoutGrid, label: "대시보드", href: "/" },
     { icon: Users, label: "내담자 관리", href: "/patients" },
     { icon: FileText, label: "상담일지 관리", href: "/logs" },
     { icon: Calendar, label: "일정 관리", href: "/schedule" },
@@ -13,38 +16,49 @@ const NAV_ITEMS = [
 ];
 
 export function Sidebar() {
+    const pathname = usePathname();
+
+    const isHome = pathname === "/";
+
     return (
         <aside className="w-20 lg:w-64 bg-[var(--color-midnight-navy)] text-white flex flex-col shrink-0 transition-all duration-300">
-            {/* Logo */}
-            <div className="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/10">
-                <div className="w-8 h-8 bg-gradient-to-br from-[var(--color-champagne-gold)] to-amber-600 rounded-lg shrink-0" />
+            {/* Logo - Clickable to Home */}
+            <Link
+                href="/"
+                className="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/10 hover:bg-white/5 transition-colors group cursor-pointer"
+            >
+                <div className="w-8 h-8 bg-gradient-to-br from-[var(--color-champagne-gold)] to-amber-600 rounded-lg shrink-0 group-hover:scale-105 transition-transform" />
                 <span className="hidden lg:block ml-3 font-serif text-xl tracking-wide text-[var(--color-warm-white)]">
                     Serene Care
                 </span>
-            </div>
+            </Link>
 
             {/* Nav */}
             <nav className="flex-1 py-8 px-2 lg:px-4 space-y-2">
-                {NAV_ITEMS.map((item) => (
-                    <Link
-                        key={item.label}
-                        href={item.href}
-                        className={cn(
-                            "flex items-center justify-center lg:justify-start px-3 py-3 rounded-xl transition-all duration-200 group relative",
-                            item.active
-                                ? "bg-white/10 text-[var(--color-champagne-gold)]"
-                                : "text-white/60 hover:text-white hover:bg-white/5"
-                        )}
-                    >
-                        <item.icon className={cn("w-5 h-5 lg:mr-3", item.active && "text-[var(--color-champagne-gold)]")} />
-                        <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                {NAV_ITEMS.map((item) => {
+                    const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
 
-                        {/* Active Indicator */}
-                        {item.active && (
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[var(--color-champagne-gold)] rounded-r-full" />
-                        )}
-                    </Link>
-                ))}
+                    return (
+                        <Link
+                            key={item.label}
+                            href={item.href}
+                            className={cn(
+                                "flex items-center justify-center lg:justify-start px-3 py-3 rounded-xl transition-all duration-200 group relative",
+                                isActive
+                                    ? "bg-white/10 text-[var(--color-champagne-gold)]"
+                                    : "text-white/60 hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            <item.icon className={cn("w-5 h-5 lg:mr-3", isActive && "text-[var(--color-champagne-gold)]")} />
+                            <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+
+                            {/* Active Indicator */}
+                            {isActive && (
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[var(--color-champagne-gold)] rounded-r-full" />
+                            )}
+                        </Link>
+                    );
+                })}
             </nav>
 
             {/* User Profile */}

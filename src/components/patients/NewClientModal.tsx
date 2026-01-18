@@ -4,12 +4,12 @@ import { useState } from "react";
 import { X, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { type Client } from "@prisma/client";
+import { type Client, Prisma } from "@prisma/client";
 
 interface NewClientModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onRegister: (client: Omit<Client, "id" | "createdAt" | "updatedAt">) => void;
+    onRegister: (client: Prisma.ClientCreateInput) => void;
 }
 
 export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalProps) {
@@ -25,7 +25,7 @@ export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalPr
     const handleRegister = () => {
         if (!name || !age || !condition) return;
 
-        const newClient: Omit<Client, "id" | "createdAt" | "updatedAt"> = {
+        const newClient: Prisma.ClientCreateInput = {
             name,
             englishName: englishName || null,
             age: parseInt(age),
@@ -40,7 +40,8 @@ export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalPr
             location: null,
             tags: [],
             notes: notes || "상담 초기 단계입니다.",
-            terminatedAt: null
+            terminatedAt: null,
+            // sessionType is optional in CreateInput
         };
 
         onRegister(newClient);

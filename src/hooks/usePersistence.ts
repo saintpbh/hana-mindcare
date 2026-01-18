@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 // import { Client, MOCK_CLIENTS } from "@/data/mockClients"; // Deprecated
-import { getClients, updateClient as updateClientAction, createClient as createClientAction, deleteClient as deleteClientAction } from "@/app/actions/clients";
-import { type Client } from "@prisma/client"; // Use Prisma type
+import { getClients, updateClient as updateClientAction, createClient as createClientAction, deleteClient as deleteClientAction, restartClient as restartClientAction } from "@/app/actions/clients";
+import { type Client, Prisma } from "@prisma/client";
 
 // Fallback or Initial Data could be MOCK if DB is empty, but better to just use DB
 // We need to match the type. Prisma Client has createdAt, updatedAt.
@@ -30,7 +30,7 @@ export function usePersistence() {
         return () => clearInterval(interval);
     }, []);
 
-    const addClient = async (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const addClient = async (client: Prisma.ClientCreateInput) => {
         // Optimistic
         setSyncStatus("saving");
         // We don't have ID yet, so we can't easily optimistic update array unless we generate temp ID.
@@ -105,6 +105,20 @@ export function usePersistence() {
         }
     };
 
+    const restartClient = async (clientId: string) => {
+        // Optimistic
+        setClients(prev => prev.map(c => c.id === clientId ? { ...c, status: 'stable', terminatedAt: null } : c));
+        setSyncStatus("saving");
+
+        const result = await restartClientAction(clientId);
+        if (result.success) {
+            setSyncStatus("synced");
+        } else {
+            setSyncStatus("error");
+            fetchClients();
+        }
+    };
+
     return {
         clients,
         isLoaded,
@@ -112,6 +126,7 @@ export function usePersistence() {
         updateClient,
         deleteClient,
         terminateClient,
+        restartClient,
         getClient,
         syncStatus
     };

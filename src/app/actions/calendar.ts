@@ -9,6 +9,11 @@ export type CalendarEvent = {
     type: 'session' | 'other';
     clientId?: string;
     clientName?: string;
+    clientContact?: string;
+    nextSession?: string;
+    sessionTime?: string;
+    location?: string;
+    sessionType?: string;
     status?: string;
 };
 
@@ -16,22 +21,7 @@ export async function getMonthlySchedule(year: number, month: number) {
     try {
         // Calculate start and end of the month
         const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0); // Last day of previous month? no, 0 is last of previous. 
-        // month is 1-indexed for the input? Let's assume input is 1-12.
-
-        // Correct date range:
-        // year=2026, month=1 (Jan) -> start: 2026-01-01, end: 2026-02-00 (which is Jan 31)
-        const startStr = startDate.toISOString().split('T')[0];
-        // For query, we might just filter by string match on nextSession date field if it's stored as YYYY-MM-DD string
-        // The schema uses `nextSession: string` (e.g. "2024-10-10") and `sessionTime: string` (e.g. "14:00") based on previous tasks.
-
-        // However, we also have `sessions` table which has `date: DateTime`.
-        // The dashboard needs FUTURE appointments. 
-        // In this app, appointments are stored on `Client` model as `nextSession` string ? 
-        // Let's verify schema to be sure about where "future schedule" lives.
-        // Assuming `Client.nextSession` is the source of truth for upcoming schedule as per previous tasks.
-
-        // Wait, `prisma.client.findMany` with `nextSession` starting with `YYYY-MM` is better.
+        const endDate = new Date(year, month, 0);
         const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
         const scheduledClients = await prisma.client.findMany({
@@ -44,13 +34,16 @@ export async function getMonthlySchedule(year: number, month: number) {
             select: {
                 id: true,
                 name: true,
+                contact: true,
                 nextSession: true,
                 sessionTime: true,
-                condition: true // To color code?
+                sessionType: true,
+                location: true,
+                condition: true
             }
         });
 
-        const events: CalendarEvent[] = scheduledClients.map(c => {
+        const events: CalendarEvent[] = scheduledClients.map((c: any) => {
             // Combine date and time to get a proper Date object for sorting/display
             const dateTimeStr = `${c.nextSession}T${c.sessionTime || '00:00'}:00`;
             return {
@@ -60,6 +53,11 @@ export async function getMonthlySchedule(year: number, month: number) {
                 type: 'session',
                 clientId: c.id,
                 clientName: c.name,
+                clientContact: c.contact,
+                nextSession: c.nextSession,
+                sessionTime: c.sessionTime,
+                sessionType: c.sessionType,
+                location: c.location,
                 status: 'scheduled'
             };
         });

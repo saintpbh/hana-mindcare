@@ -4,13 +4,13 @@ import { useState } from "react";
 import { X, Send, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { type Client } from "@prisma/client";
+type Client = any;
 import { sendSMS } from "@/services/smsService";
 
 interface MessageModalProps {
     isOpen: boolean;
     onClose: () => void;
-    client: Client | undefined;
+    clients: any[];
 }
 
 const TEMPLATES = [
@@ -20,27 +20,36 @@ const TEMPLATES = [
     { label: "과제 확인", text: "이번 주 과제는 잘 진행되고 계신가요? 어려움이 있으시면 언제든 말씀해주세요." },
 ];
 
-export function MessageModal({ isOpen, onClose, client }: MessageModalProps) {
+export function MessageModal({ isOpen, onClose, clients = [] }: MessageModalProps) {
     const [message, setMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
 
     const handleSend = async () => {
-        if (!client || !message) return;
+        if (clients.length === 0 || !message) return;
 
         setIsSending(true);
-        try {
-            const response = await sendSMS({
-                to: client.contact,
-                body: message,
-                type: "LMS" // Default to LMS for generated messages
-            });
+        let successCount = 0;
+        let failCount = 0;
 
-            if (response.success) {
-                alert(`[전송 완료] ${client.name}님에게 메시지를 보냈습니다.`);
+        try {
+            // Send to each client
+            for (const client of clients) {
+                const response = await sendSMS({
+                    to: client.contact,
+                    body: message,
+                    type: "LMS" // Default to LMS for generated messages
+                });
+
+                if (response.success) successCount++;
+                else failCount++;
+            }
+
+            if (failCount === 0) {
+                alert(`[전송 완료] ${successCount}명에게 메시지를 보냈습니다.`);
                 onClose();
                 setMessage("");
             } else {
-                alert("메시지 전송에 실패했습니다.");
+                alert(`${successCount}명 전송 성공, ${failCount}명 전송 실패했습니다.`);
             }
         } catch (error) {
             console.error("Failed to send message:", error);
@@ -80,7 +89,12 @@ export function MessageModal({ isOpen, onClose, client }: MessageModalProps) {
                             <div>
                                 <h2 className="text-xl font-serif text-[var(--color-midnight-navy)]">문자 전송 (SMS)</h2>
                                 <p className="text-sm text-[var(--color-midnight-navy)]/60">
-                                    받는 사람: <span className="font-medium text-[var(--color-midnight-navy)]">{client?.name}</span> ({client?.contact})
+                                    받는 사람: <span className="font-medium text-[var(--color-midnight-navy)]">
+                                        {clients.length === 1
+                                            ? `${clients[0].name} (${clients[0].contact})`
+                                            : `${clients[0]?.name} 외 ${clients.length - 1}명`
+                                        }
+                                    </span>
                                 </p>
                             </div>
                         </div>

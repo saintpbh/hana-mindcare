@@ -3,9 +3,16 @@
 import { useState, useEffect } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, MessageSquare } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, MessageSquare, RefreshCw, X, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getMonthlySchedule, type CalendarEvent } from '@/app/actions/calendar';
+import { updateClient } from '@/app/actions/clients';
+import { MessageModal } from '@/components/patients/MessageModal';
+import { ScheduleModal } from '@/components/patients/ScheduleModal';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+// Use any for Client to avoid Prisma generation lint issues in this environment
+type Client = any;
 
 export function SmartCalendar({
     compact = false,
@@ -16,10 +23,25 @@ export function SmartCalendar({
     className?: string;
     onEventClick?: (event: CalendarEvent) => void;
 }) {
+    const router = useRouter();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // Modal & UX State
+    const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+    const [selectedMessageClient, setSelectedMessageClient] = useState<Client | undefined>(undefined);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [selectedScheduleClient, setSelectedScheduleClient] = useState<Client | undefined>(undefined);
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+    // Close menu on click outside
+    useEffect(() => {
+        const handleClickOutside = () => setActiveMenuId(null);
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         fetchEvents();
@@ -90,18 +112,33 @@ export function SmartCalendar({
     return (
         <div className={`bg-white rounded-3xl shadow-sm border border-[var(--color-midnight-navy)]/5 overflow-hidden flex flex-col ${className}`}>
             {/* Header */}
-            <div className="p-4 flex items-center justify-between border-b border-[var(--color-midnight-navy)]/5">
-                <h2 className="text-lg font-bold text-[var(--color-midnight-navy)] flex items-center gap-2">
-                    {format(currentMonth, 'yyyy년 M월', { locale: ko })}
-                    {loading && <span className="text-xs font-normal text-gray-300 animate-pulse">...</span>}
-                </h2>
-                <div className="flex gap-1">
-                    <button onClick={prevMonth} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                        <ChevronLeft className="w-5 h-5 text-[var(--color-midnight-navy)]/60" />
+            <div className="p-6 flex items-center justify-between border-b border-[var(--color-midnight-navy)]/5 bg-white/50 backdrop-blur-md sticky top-0 z-30">
+                <div>
+                    <h2 className="text-xl font-serif text-[var(--color-midnight-navy)] flex items-center gap-2 leading-none">
+                        {format(currentMonth, 'yyyy년 M월', { locale: ko })}
+                        {loading && <span className="text-xs font-normal text-gray-300 animate-pulse">...</span>}
+                    </h2>
+                    <p className="text-[10px] text-[var(--color-midnight-navy)]/40 mt-1 uppercase font-bold tracking-widest">Counselor Schedule</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => {
+                            const today = new Date();
+                            setCurrentMonth(today);
+                            setSelectedDate(today);
+                        }}
+                        className="px-3 py-1.5 text-[10px] font-bold bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/60 hover:bg-[var(--color-midnight-navy)] hover:text-white rounded-full transition-all"
+                    >
+                        오늘
                     </button>
-                    <button onClick={nextMonth} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                        <ChevronRight className="w-5 h-5 text-[var(--color-midnight-navy)]/60" />
-                    </button>
+                    <div className="flex bg-[var(--color-midnight-navy)]/5 p-1 rounded-full items-center">
+                        <button onClick={prevMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]">
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={nextMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]">
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -125,27 +162,45 @@ export function SmartCalendar({
                         const isDayToday = isToday(day);
 
                         return (
-                            <div key={day.toString()} className="flex flex-col items-center">
+                            <div key={day.toString()} className="flex flex-col items-center py-1 group/day h-14">
                                 <button
                                     onClick={() => onDateClick(day)}
                                     className={`
-                                        w-8 h-8 rounded-full flex items-center justify-center text-sm relative transition-all
+                                        w-8 h-8 rounded-full flex items-center justify-center text-sm relative transition-all z-10
                                         ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-700'}
                                         ${isSelected ? 'bg-[var(--color-midnight-navy)] text-white shadow-md scale-110' : 'hover:bg-gray-100'}
-                                        ${isDayToday && !isSelected ? 'text-[var(--color-midnight-navy)] font-bold ring-1 ring-[var(--color-midnight-navy)]/20' : ''}
+                                        ${isDayToday && !isSelected ? 'text-[var(--color-midnight-navy)] font-bold ring-1 ring-[var(--color-midnight-navy)]/20 shadow-sm' : ''}
                                     `}
                                 >
                                     {format(day, 'd')}
+                                </button>
 
-                                    {/* Dots for Events */}
-                                    {dayEvents.length > 0 && !isSelected && (
-                                        <div className="absolute bottom-1 flex gap-0.5">
-                                            {dayEvents.slice(0, 3).map((_, i) => (
-                                                <div key={i} className="w-1 h-1 rounded-full bg-[var(--color-champagne-gold)]" />
-                                            ))}
+                                {/* Dots Container - Positioned below the number circle */}
+                                <div className="h-4 flex flex-col items-center justify-start mt-1 pointer-events-none">
+                                    {dayEvents.length > 0 && (
+                                        <div className="flex flex-col items-center gap-0.5 scale-90">
+                                            {/* Row 1: Max 3 dots */}
+                                            <div className="flex gap-0.5 items-center h-1.5">
+                                                {dayEvents.slice(0, Math.min(dayEvents.length, 3)).map((_, i) => (
+                                                    <div
+                                                        key={`row1-${i}`}
+                                                        className={`rounded-full shadow-sm transition-all ${isSelected ? 'bg-[var(--color-champagne-gold)]' : 'bg-[var(--color-champagne-gold)]'
+                                                            } ${i === 0 && dayEvents.length >= 7 ? 'w-1.5 h-1.5 ring-1 ring-[var(--color-champagne-gold)]/30' : 'w-1 h-1'
+                                                            }`}
+                                                    />
+                                                ))}
+                                            </div>
+                                            {/* Row 2: Dots 4 to 6 */}
+                                            {dayEvents.length > 3 && (
+                                                <div className="flex gap-0.5 items-center h-1.5">
+                                                    {dayEvents.slice(3, Math.min(dayEvents.length, 6)).map((_, i) => (
+                                                        <div key={`row2-${i}`} className="w-1 h-1 rounded-full bg-[var(--color-champagne-gold)] shadow-sm" />
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </button>
+                                </div>
                             </div>
                         );
                     })}
@@ -174,35 +229,72 @@ export function SmartCalendar({
                                 {selectedDayEvents.map((event) => {
                                     // Calculate simplistic status for visual demo
                                     const now = new Date();
-                                    const isToday = isSameDay(event.date, now);
+                                    const eventEnd = new Date(event.date.getTime() + 50 * 60000); // 50 min duration
+
                                     let status = 'upcoming';
-                                    if (isToday) {
-                                        if (now > event.date) status = 'completed';
-                                    } else if (event.date < now) {
+                                    if (now >= event.date && now < eventEnd) {
+                                        status = 'current';
+                                    } else if (now >= eventEnd) {
                                         status = 'completed';
                                     }
 
                                     const handleSendSms = (e: React.MouseEvent) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-
-                                        // Check if Auto is ON
-                                        const settings = JSON.parse(localStorage.getItem("notification_settings") || "{}");
-                                        if (settings.autoSms) {
-                                            if (!confirm("현재 '자동 발송'이 켜져 있습니다. 그래도 수동으로 발송하시겠습니까?")) return;
+                                        if (event.clientId && event.clientName && event.clientContact) {
+                                            setSelectedMessageClient({
+                                                id: event.clientId,
+                                                name: event.clientName,
+                                                contact: event.clientContact,
+                                                createdAt: new Date(),
+                                                updatedAt: new Date(),
+                                                // Minimal mock to satisfy type
+                                                age: 0, gender: '', diagnosis: '', condition: '', note: '', notes: '', nextSession: '', sessionTime: '', isSessionCanceled: false, status: 'Active', terminatedAt: null, tags: []
+                                            } as any);
+                                            setIsMessageModalOpen(true);
                                         }
+                                    };
 
-                                        // Simulate Sending
-                                        const timeStr = format(event.date, 'a h:mm', { locale: ko });
-                                        alert(`[전송 완료] ${event.clientName}님께 ${timeStr} 상담 리마인드 문자를 발송했습니다.`);
+                                    const handleChange = async (e: React.MouseEvent, action: 'cancel' | 'reschedule' | 'noshow') => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        if (action === 'cancel' || action === 'noshow') {
+                                            if (confirm(`${action === 'noshow' ? '노쇼' : '취소'} 처리하시겠습니까?`)) {
+                                                await updateClient(event.clientId!, { isSessionCanceled: true });
+                                                fetchEvents(); // Refresh
+                                            }
+                                        } else if (action === 'reschedule') {
+                                            if (event.clientId && event.clientName) {
+                                                setSelectedScheduleClient({
+                                                    id: event.clientId,
+                                                    name: event.clientName,
+                                                    nextSession: event.nextSession,
+                                                    sessionTime: event.sessionTime,
+                                                    sessionType: event.sessionType,
+                                                    location: event.location,
+                                                    isSessionCanceled: false
+                                                } as any);
+                                                setIsScheduleModalOpen(true);
+                                                setActiveMenuId(null);
+                                            }
+                                        }
+                                    };
+
+                                    const getTypeLabel = (type?: string) => {
+                                        switch (type) {
+                                            case 'online': return '비대면(영상)';
+                                            case 'phone': return '전화 상담';
+                                            default: return '대면 상담';
+                                        }
                                     };
 
                                     return (
-                                        <div key={event.id} className={`relative flex gap-4 group ${status === 'completed' ? 'opacity-60' : ''}`}>
+                                        <div key={event.id} className={`relative flex gap-4 group ${status === 'completed' ? 'opacity-50' : ''}`}>
 
                                             {/* Time Column */}
                                             <div className="w-12 text-right shrink-0 pt-1">
-                                                <span className="text-xs font-semibold text-[var(--color-midnight-navy)]/60 font-mono">
+                                                <span className={`text-xs font-bold font-mono ${status === 'current' ? 'text-[var(--color-champagne-gold)]' : 'text-[var(--color-midnight-navy)]/60'}`}>
                                                     {format(event.date, 'HH:mm')}
                                                 </span>
                                             </div>
@@ -221,45 +313,91 @@ export function SmartCalendar({
                                             {/* Card */}
                                             <div className="flex-1">
                                                 <div
-                                                    onClick={() => onEventClick?.(event)}
+                                                    onClick={() => router.push(`/patients/${event.clientId}`)}
                                                     className={`
-                                                    p-3 rounded-xl border transition-all relative overflow-hidden group/card cursor-pointer
+                                                    p-4 rounded-2xl border transition-all relative overflow-hidden group/card cursor-pointer
                                                     ${status === 'current'
-                                                            ? "bg-[var(--color-midnight-navy)] text-white shadow-lg border-transparent"
+                                                            ? "bg-[var(--color-midnight-navy)] text-white shadow-xl border-transparent transform scale-[1.02]"
                                                             : "bg-white border-[var(--color-midnight-navy)]/5 hover:border-[var(--color-champagne-gold)]/50 hover:shadow-md"
                                                         }
                                                 `}>
-                                                    <div className="flex justify-between items-start mb-0.5">
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${status === 'current' ? "bg-white/10 text-white" : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/50"
-                                                            }`}>
-                                                            상담
-                                                        </span>
+                                                    <div className="flex justify-between items-start mb-2 relative z-10">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${status === 'current' ? "bg-white/10 text-white" : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/50"}`}>
+                                                                상담
+                                                            </span>
+                                                            {status === 'current' && (
+                                                                <span className="flex items-center gap-1 text-[10px] font-bold text-[var(--color-champagne-gold)] animate-pulse">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-champagne-gold)]" />
+                                                                    진행 중
+                                                                </span>
+                                                            )}
+                                                        </div>
 
-                                                        {/* SMS Button (Only for upcoming or current) */}
-                                                        {status !== 'completed' && (
-                                                            <button
-                                                                onClick={handleSendSms}
-                                                                className={`
-                                                                    opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-full 
-                                                                    ${status === 'current'
-                                                                        ? "bg-white/20 hover:bg-white/30 text-white"
-                                                                        : "bg-[var(--color-midnight-navy)]/5 hover:bg-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)]"
-                                                                    }
-                                                                `}
-                                                                title="리마인드 문자 발송"
-                                                            >
-                                                                <MessageSquare className="w-3.5 h-3.5" />
-                                                            </button>
+                                                        {/* Actions - Always visible */}
+                                                        {true && (
+                                                            <div className="flex gap-1 relative z-20">
+                                                                {/* Change Button */}
+                                                                <div className="relative">
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            setActiveMenuId(activeMenuId === event.id ? null : event.id);
+                                                                        }}
+                                                                        className={`p-1.5 rounded-full transition-colors ${status === 'current' ? "bg-white/10 hover:bg-white/20 text-white" : "bg-[var(--color-midnight-navy)]/5 hover:bg-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]"}`}
+                                                                    >
+                                                                        <RefreshCw className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                    {/* State-controlled Menu */}
+                                                                    <AnimatePresence>
+                                                                        {activeMenuId === event.id && (
+                                                                            <motion.div
+                                                                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                                className="absolute right-0 top-full mt-2 w-32 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-[100] text-[var(--color-midnight-navy)] shadow-midnight-navy/10"
+                                                                            >
+                                                                                <button onClick={(e) => handleChange(e, 'reschedule')} className="w-full text-left px-3 py-2.5 text-xs font-semibold hover:bg-[var(--color-midnight-navy)]/5 flex items-center gap-2 transition-colors border-b border-gray-50">
+                                                                                    <CalendarIcon className="w-3.5 h-3.5 opacity-40" /> 일정 변경
+                                                                                </button>
+                                                                                <button onClick={(e) => handleChange(e, 'noshow')} className="w-full text-left px-3 py-2.5 text-xs font-semibold hover:bg-orange-50 flex items-center gap-2 text-orange-600 transition-colors border-b border-gray-50">
+                                                                                    <Ban className="w-3.5 h-3.5 opacity-40" /> 노쇼 처리
+                                                                                </button>
+                                                                                <button onClick={(e) => handleChange(e, 'cancel')} className="w-full text-left px-3 py-2.5 text-xs font-semibold hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors">
+                                                                                    <X className="w-3.5 h-3.5 opacity-40" /> 상담 취소
+                                                                                </button>
+                                                                            </motion.div>
+                                                                        )}
+                                                                    </AnimatePresence>
+                                                                </div>
+
+                                                                {/* SMS Button */}
+                                                                <button
+                                                                    onClick={handleSendSms}
+                                                                    className={`p-1.5 rounded-full transition-colors ${status === 'current' ? "bg-white/10 hover:bg-white/20 text-white" : "bg-[var(--color-midnight-navy)]/5 hover:bg-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]"}`}
+                                                                    title="리마인드 문자"
+                                                                >
+                                                                    <MessageSquare className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </div>
-                                                    <h4 className={`text-sm font-bold mb-0.5 ${status === 'current' ? 'text-white' : 'text-[var(--color-midnight-navy)]'}`}>
-                                                        {event.clientName}
+
+                                                    {/* Client Name */}
+                                                    <h4 className={`text-base font-bold mb-1.5 ${status === 'current' ? 'text-white' : 'text-[var(--color-midnight-navy)]'}`}>
+                                                        {event.clientName} 님
                                                     </h4>
-                                                    <div className={`flex items-center gap-1.5 text-xs ${status === 'current' ? 'text-white/60' : 'text-[var(--color-midnight-navy)]/40'}`}>
-                                                        <Clock className="w-3 h-3" />
-                                                        <span>50min</span>
-                                                        <span className="opacity-50">•</span>
-                                                        <User className="w-3 h-3" />
+
+                                                    <div className={`flex items-center gap-3 text-xs ${status === 'current' ? 'text-white/60' : 'text-[var(--color-midnight-navy)]/40'}`}>
+                                                        <div className="flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />
+                                                            <span>50min</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <User className="w-3 h-3" />
+                                                            <span>{getTypeLabel(event.sessionType)}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -284,6 +422,21 @@ export function SmartCalendar({
                     </AnimatePresence>
                 </div>
             </div>
+
+            <MessageModal
+                isOpen={isMessageModalOpen}
+                onClose={() => setIsMessageModalOpen(false)}
+                clients={selectedMessageClient ? [selectedMessageClient] : []}
+            />
+
+            <ScheduleModal
+                isOpen={isScheduleModalOpen}
+                onClose={() => {
+                    setIsScheduleModalOpen(false);
+                    fetchEvents(); // Refresh in case of change
+                }}
+                client={selectedScheduleClient}
+            />
         </div>
     );
 }

@@ -8,9 +8,12 @@ import { useParams, useRouter } from "next/navigation";
 import { PrescriptionModal } from "@/components/library/PrescriptionModal";
 import { EditClientModal } from "@/components/patients/EditClientModal";
 import { MessageModal } from "@/components/patients/MessageModal";
+import { ScheduleModal } from "@/components/patients/ScheduleModal";
 import { getClientWithHistory, updateClient, terminateClient, deleteQuickNote, restoreQuickNote } from "@/app/actions/clients";
 import { useEffect, useState } from "react";
-import { type Client, type Session } from "@prisma/client";
+// import { type Client, type Session } from "@prisma/client";
+type Client = any;
+type Session = any;
 
 // Extended type to include sessions and quickNotes
 type ClientWithSessions = Client & {
@@ -28,6 +31,7 @@ export default function PatientPage() {
     const [isPrescribeOpen, setIsPrescribeOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isMessageOpen, setIsMessageOpen] = useState(false);
+    const [isScheduleOpen, setIsScheduleOpen] = useState(false);
 
     useEffect(() => {
         const fetchClient = async () => {
@@ -52,7 +56,7 @@ export default function PatientPage() {
         const result = await updateClient(client.id, updatedClient);
         if (result.success && result.data) {
             // Re-fetch to get consistent state or just update local
-            setClient(prev => prev ? { ...prev, ...result.data } : null);
+            setClient((prev: any) => prev ? { ...prev, ...result.data } : null);
             setIsEditOpen(false);
         }
     };
@@ -62,7 +66,7 @@ export default function PatientPage() {
     };
 
     const handleSchedule = () => {
-        router.push("/schedule");
+        setIsScheduleOpen(true);
     };
 
     const handleTerminate = async () => {
@@ -73,7 +77,7 @@ export default function PatientPage() {
         if (result.success) {
             alert("상담이 종결되었습니다.");
             // Refresh client data
-            setClient(prev => prev ? { ...prev, status: 'terminated' } : null);
+            setClient((prev: any) => prev ? { ...prev, status: 'terminated' } : null);
         } else {
             alert("처리 중 오류가 발생했습니다.");
         }
@@ -161,7 +165,7 @@ export default function PatientPage() {
                                 <div className="text-center py-10 text-gray-500">기록된 세션이 없습니다.</div>
                             ) : (
                                 <>
-                                    {client.sessions.slice(0, isHistoryExpanded ? undefined : 4).map((session) => (
+                                    {client.sessions.slice(0, isHistoryExpanded ? undefined : 4).map((session: any) => (
                                         <Link key={session.id} href={`/patients/${client.id}/sessions/${session.id}`} className="block group">
                                             <div className="bg-white p-5 rounded-xl border border-[var(--color-midnight-navy)]/5 shadow-sm hover:border-[var(--color-champagne-gold)]/30 transition-colors cursor-pointer mb-4">
                                                 <div className="flex justify-between items-start mb-2">
@@ -222,7 +226,7 @@ export default function PatientPage() {
                                 <div className="text-center py-4 text-gray-400 text-sm italic">저장된 메모가 없습니다.</div>
                             ) : (
                                 <div className="space-y-3">
-                                    {client.quickNotes.map(note => (
+                                    {client.quickNotes.map((note: any) => (
                                         <div key={note.id} className="bg-amber-50 p-4 rounded-xl border border-amber-100 relative group">
                                             <p className="text-sm text-amber-900/90 whitespace-pre-wrap leading-relaxed pr-6">{note.content}</p>
                                             <span className="text-xs text-amber-800/50 mt-2 block flex justify-between">
@@ -234,9 +238,9 @@ export default function PatientPage() {
                                                         const res = await deleteQuickNote(note.id);
                                                         if (res.success) {
                                                             // Refresh local state if needed or rely on re-fetch
-                                                            setClient(prev => prev ? {
+                                                            setClient((prev: any) => prev ? {
                                                                 ...prev,
-                                                                quickNotes: prev.quickNotes.filter(n => n.id !== note.id)
+                                                                quickNotes: prev.quickNotes.filter((n: any) => n.id !== note.id)
                                                             } : null);
 
                                                             if (confirm('삭제되었습니다. 되살리시겠습니까? (Undo)')) {
@@ -279,6 +283,12 @@ export default function PatientPage() {
             <MessageModal
                 isOpen={isMessageOpen}
                 onClose={() => setIsMessageOpen(false)}
+                clients={client ? [client] : []}
+            />
+
+            <ScheduleModal
+                isOpen={isScheduleOpen}
+                onClose={() => setIsScheduleOpen(false)}
                 client={client}
             />
         </div >

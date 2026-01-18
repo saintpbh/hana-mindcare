@@ -3,12 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { IntakeWizard } from "@/components/schedule/IntakeWizard";
 import { CalendarView } from "@/components/schedule/CalendarView";
 import { EditAppointmentModal } from "@/components/schedule/EditAppointmentModal";
+import { ScheduleDetailPanel } from "@/components/schedule/ScheduleDetailPanel";
+import { SessionListPanel } from "@/components/schedule/SessionListPanel";
+import { DayViewSidebar } from "@/components/schedule/DayViewSidebar";
 
 import { getClients } from "@/app/actions/clients";
-import { type Client } from "@prisma/client";
+type Client = any;
 import { useEffect } from "react";
 
 export default function SchedulePage() {
@@ -16,6 +20,53 @@ export default function SchedulePage() {
     const [editingAppointment, setEditingAppointment] = useState<any>(null);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentView, setCurrentView] = useState<"day" | "week" | "month">("week");
+    const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
+    const [currentDate, setCurrentDate] = useState(new Date()); // Default to Today (System Time)
+
+    // Smart Selection Logic: explicit select -> current time (mocked for demo) -> next upcoming
+    const selectedAppointment = appointments.find(a => a.id === selectedAppointmentId);
+
+    // Fallback logic for demo purposes
+    const defaultAppointment = !selectedAppointmentId
+        ? appointments.find(a => a.time >= 10 && a.day === 0)
+        : null;
+
+    // Helper to format header date
+    const formatHeaderDate = () => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        const date = currentDate.getDate();
+
+        if (currentView === "day") return `${year}년 ${month}월 ${date}일`;
+        if (currentView === "week") {
+            // Calculate week range
+            const day = currentDate.getDay(); // 0=Sun
+            const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+            const monday = new Date(currentDate);
+            monday.setDate(diff);
+            const friday = new Date(monday);
+            friday.setDate(monday.getDate() + 4);
+            return `${year}년 ${month}월 ${monday.getDate()}일 - ${friday.getDate()}일`;
+        }
+        return `${year}년 ${month}월`;
+    };
+
+    const handlePrev = () => {
+        const newDate = new Date(currentDate);
+        if (currentView === "month") newDate.setMonth(newDate.getMonth() - 1);
+        if (currentView === "week") newDate.setDate(newDate.getDate() - 7);
+        if (currentView === "day") newDate.setDate(newDate.getDate() - 1);
+        setCurrentDate(newDate);
+    };
+
+    const handleNext = () => {
+        const newDate = new Date(currentDate);
+        if (currentView === "month") newDate.setMonth(newDate.getMonth() + 1);
+        if (currentView === "week") newDate.setDate(newDate.getDate() + 7);
+        if (currentView === "day") newDate.setDate(newDate.getDate() + 1);
+        setCurrentDate(newDate);
+    };
 
     useEffect(() => {
         const fetchAppointments = async () => {
@@ -26,16 +77,10 @@ export default function SchedulePage() {
                     const timeStr = client.sessionTime || "10:00";
                     const hour = parseInt(timeStr.split(':')[0], 10);
 
-                    // Date parsing to determine 'day' offset for the weekly view
-                    // This is a bit tricky for a static weekly view. 
-                    // For now, let's just show them on the calendar based on day of week?
-                    // The CalendarView likely expects a specific format.
-                    // Let's look at INITIAL_APPOINTMENTS: { day: 0 (Mon), time: 10 ... }
-
+                    // Date parsing
                     const sessionDate = new Date(client.nextSession);
-                    const day = sessionDate.getDay() - 1; // 0=Sun, 1=Mon... we want 0=Mon. So Mon(1)-1=0.
+                    const day = sessionDate.getDay() - 1; // 0=Sun, 1=Mon... we want 0=Mon.
 
-                    // Simple heuristic for color based on status
                     let color = "bg-teal-100 text-teal-900 border-teal-200"; // Stable/Ongoing
                     if (client.status === 'crisis') color = "bg-rose-100 text-rose-900 border-rose-200";
                     if (client.tags.includes('intake')) color = "bg-amber-100 text-amber-900 border-amber-200";
@@ -49,15 +94,16 @@ export default function SchedulePage() {
                         duration: 1,
                         color,
                         location: client.location,
-                        rawDate: client.nextSession
+                        rawDate: sessionDate.toISOString().split('T')[0], // Ensure YYYY-MM-DD format
+                        history: client.sessions ? client.sessions.map((s: any) => ({
+                            id: s.id,
+                            date: new Date(s.date),
+                            duration: s.duration,
+                            summary: s.notes, // Assuming 'notes' field for summary
+                            type: 'Counseling'
+                        })) : []
                     };
                 });
-
-                // Filter only current week? Or just show all for demo?
-                // The calendar view is static "Oct 14-18". We should probably make the calendar dynamic too, but that's bigger.
-                // For "Make it look real", showing the data we just seeded involves "Today".
-                // "Today" in seed is dynamic. The CalendarView might be expecting strict day indices 0-4.
-                // Let's just pass them and see.
                 setAppointments(mappedAppointments);
             }
             setIsLoading(false);
@@ -98,13 +144,37 @@ export default function SchedulePage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-white rounded-lg border border-[var(--color-midnight-navy)]/10 p-1">
-                        <button className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60">
+                <div className="flex items-center gap-4">
+                    {/* View Switcher */}
+                    <div className="flex bg-white rounded-lg border border-[var(--color-midnight-navy)]/10 p-1 shadow-sm">
+                        {[
+                            { id: "day", label: "일간" },
+                            { id: "week", label: "주간" },
+                            { id: "month", label: "월간" }
+                        ].map((v) => (
+                            <button
+                                key={v.id}
+                                onClick={() => setCurrentView(v.id as any)}
+                                className={cn(
+                                    "px-4 py-1.5 text-xs font-medium rounded-md transition-all",
+                                    currentView === v.id
+                                        ? "bg-[var(--color-midnight-navy)] text-white shadow-md shadow-[var(--color-midnight-navy)]/20"
+                                        : "text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)] hover:bg-[var(--color-midnight-navy)]/5"
+                                )}
+                            >
+                                {v.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center bg-white rounded-lg border border-[var(--color-midnight-navy)]/10 p-1 shadow-sm">
+                        <button onClick={handlePrev} className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60">
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="px-3 text-sm font-medium text-[var(--color-midnight-navy)]">2024년 10월 14일 - 18일</span>
-                        <button className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60">
+                        <span className="px-3 text-sm font-medium text-[var(--color-midnight-navy)] min-w-[140px] text-center">
+                            {formatHeaderDate()}
+                        </span>
+                        <button onClick={handleNext} className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60">
                             <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
@@ -121,51 +191,57 @@ export default function SchedulePage() {
 
             {/* Main Content */}
             <div className="flex gap-6 flex-1 min-h-0">
-                {/* Sidebar Mini Calendar & Filters */}
-                <aside className="w-64 flex flex-col gap-6 shrink-0">
-                    <div className="bg-white p-4 rounded-2xl border border-[var(--color-midnight-navy)]/5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4 text-[var(--color-midnight-navy)] font-semibold">
-                            <Calendar className="w-4 h-4" />
-                            <span>2024년 10월</span>
-                        </div>
-                        {/* Simplified Mini Calendar Grid Placeholder */}
-                        <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                            {["월", "화", "수", "목", "금", "토", "일"].map(d => (
-                                <div key={d} className="text-[var(--color-midnight-navy)]/40 font-medium py-1">{d}</div>
-                            ))}
-                            {Array.from({ length: 31 }, (_, i) => (
-                                <div key={i} className={`py-1.5 rounded-md ${i === 13 ? 'bg-[var(--color-midnight-navy)] text-white' : 'hover:bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]'}`}>
-                                    {i + 1}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                {/* 1. Sidebar (Day View Only) */}
+                {currentView === "day" && (
+                    <DayViewSidebar
+                        currentDate={currentDate}
+                        onDateChange={setCurrentDate}
+                        appointments={appointments}
+                        sessions={appointments.filter(a => a.rawDate === currentDate.toISOString().split('T')[0])}
+                    />
+                )}
 
-                    <div className="space-y-3">
-                        <h3 className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-wider px-2">필터 (Filters)</h3>
-                        <div className="bg-white p-4 rounded-xl border border-[var(--color-midnight-navy)]/5 shadow-sm space-y-3">
-                            <label className="flex items-center gap-2 text-sm text-[var(--color-midnight-navy)] cursor-pointer">
-                                <input type="checkbox" className="rounded border-gray-300 text-[var(--color-midnight-navy)] focus:ring-[var(--color-midnight-navy)]" defaultChecked />
-                                <span>진행 중 상담 (Ongoing)</span>
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-[var(--color-midnight-navy)] cursor-pointer">
-                                <input type="checkbox" className="rounded border-gray-300 text-[var(--color-midnight-navy)] focus:ring-[var(--color-midnight-navy)]" defaultChecked />
-                                <span>초기 면담 (Intake/New)</span>
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-[var(--color-midnight-navy)] cursor-pointer">
-                                <input type="checkbox" className="rounded border-gray-300 text-[var(--color-midnight-navy)] focus:ring-[var(--color-midnight-navy)]" defaultChecked />
-                                <span>위기 개입 (Crisis)</span>
-                            </label>
+                {/* 2. Main Calendar Area (Left, Flexible) */}
+                <div className="flex-1 flex flex-col min-w-0 h-full">
+                    <CalendarView
+                        appointments={appointments}
+                        setAppointments={setAppointments}
+                        onEditAppointment={(id) => setEditingAppointment(appointments.find(a => a.id === id))}
+                        view={currentView}
+                        currentDate={currentDate}
+                        onDateChange={(date) => {
+                            setCurrentDate(date);
+                        }}
+                        onSelectAppointment={(id) => setSelectedAppointmentId(id)}
+                        selectedAppointmentId={selectedAppointmentId}
+                    />
+                </div>
+
+                {/* 3. Client Detail Panel (Center, Fixed Width) */}
+                {selectedAppointment ? (
+                    <aside className="w-[400px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-white shadow-sm z-10 transition-all">
+                        <ScheduleDetailPanel
+                            appointment={selectedAppointment}
+                            onClose={() => setSelectedAppointmentId(null)}
+                            onEdit={(id) => setEditingAppointment(appointments.find(a => a.id === id))}
+                        />
+                    </aside>
+                ) : (
+                    <aside className="w-[400px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-white/50 flex flex-col items-center justify-center text-[var(--color-midnight-navy)]/30 gap-4">
+                        <div className="w-16 h-16 rounded-full bg-[var(--color-midnight-navy)]/5 flex items-center justify-center">
+                            <Plus className="w-8 h-8 opacity-50" />
                         </div>
-                    </div>
+                        <p className="font-medium">일정을 선택하여 상세 정보를 확인하세요</p>
+                    </aside>
+                )}
+
+                {/* 4. Session History Panel (Right, Fixed Width) */}
+                <aside className="w-[320px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-gray-50/50">
+                    <SessionListPanel
+                        sessions={selectedAppointment?.history || []}
+                        clientName={selectedAppointment?.title}
+                    />
                 </aside>
-
-                {/* Main Calendar View */}
-                <CalendarView
-                    appointments={appointments}
-                    setAppointments={setAppointments}
-                    onEditAppointment={(id) => setEditingAppointment(appointments.find(a => a.id === id))}
-                />
             </div>
 
             <IntakeWizard

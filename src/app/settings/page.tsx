@@ -11,8 +11,12 @@ const TABS = [
     { id: "notifications", label: "알림 (Notifications)", icon: Bell },
     { id: "display", label: "화면 (Display)", icon: Monitor },
     { id: "general", label: "일반 (General)", icon: Globe },
+    { id: "locations", label: "상담 장소 (Locations)", icon: MapPinIcon },
     { id: "ai", label: "AI 설정 (Intelligence)", icon: Sparkles },
 ];
+
+import { MapPin as MapPinIcon, Plus, Trash2 } from "lucide-react";
+import { getLocations, addLocation, deleteLocation } from "@/app/actions/locations";
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState("account");
@@ -58,6 +62,7 @@ export default function SettingsPage() {
                             {activeTab === "notifications" && <NotificationSettings />}
                             {activeTab === "display" && <DisplaySettings />}
                             {activeTab === "general" && <GeneralSettings />}
+                            {activeTab === "locations" && <LocationManagement />}
                             {activeTab === "ai" && <AISettings />}
                         </motion.div>
                     </div>
@@ -381,6 +386,108 @@ function AISettings() {
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function LocationManagement() {
+    const [locations, setLocations] = useState<any[]>([]);
+    const [newLocation, setNewLocation] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        fetchLocations();
+    }, []);
+
+    const fetchLocations = async () => {
+        const res = await getLocations();
+        if (res.success) {
+            setLocations(res.data || []);
+        }
+        setIsLoading(false);
+    };
+
+    const handleAdd = async () => {
+        if (!newLocation.trim()) return;
+        const res = await addLocation(newLocation.trim());
+        if (res.success) {
+            setNewLocation("");
+            fetchLocations();
+        } else {
+            alert(res.error);
+        }
+    };
+
+    const handleDelete = async (id: string, name: string) => {
+        if (confirm(`'${name}' 장소를 삭제하시겠습니까?`)) {
+            const res = await deleteLocation(id);
+            if (res.success) {
+                fetchLocations();
+            }
+        }
+    };
+
+    return (
+        <div className="space-y-8">
+            <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">상담 장소 관리</h3>
+
+            <div className="space-y-4">
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newLocation}
+                        onChange={(e) => setNewLocation(e.target.value)}
+                        placeholder="새로운 상담 장소 이름 (예: 강남 센터)"
+                        className="flex-1 p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm focus:outline-none focus:border-[var(--color-midnight-navy)]"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                    />
+                    <button
+                        onClick={handleAdd}
+                        className="px-6 py-3 bg-[var(--color-midnight-navy)] text-white rounded-xl text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors flex items-center gap-2"
+                    >
+                        <Plus className="w-4 h-4" />
+                        추가
+                    </button>
+                </div>
+
+                <div className="mt-8">
+                    <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-4 block">현재 등록된 장소 목록</label>
+                    {isLoading ? (
+                        <div className="text-sm text-gray-400">로드 중...</div>
+                    ) : locations.length === 0 ? (
+                        <div className="text-sm text-gray-400 italic bg-gray-50 p-6 rounded-xl border border-dashed text-center">등록된 장소가 없습니다. 초기 장소를 추가해주세요.</div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {locations.map((loc) => (
+                                <div key={loc.id} className="flex items-center justify-between p-4 bg-white border border-[var(--color-midnight-navy)]/5 rounded-xl shadow-sm hover:border-[var(--color-midnight-navy)]/20 transition-all group">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-[var(--color-midnight-navy)]/5">
+                                            <MapPinIcon className="w-4 h-4 text-[var(--color-midnight-navy)]" />
+                                        </div>
+                                        <span className="text-sm font-medium text-[var(--color-midnight-navy)]">{loc.name}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDelete(loc.id, loc.name)}
+                                        className="p-2 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="mt-12 p-6 bg-[var(--color-warm-white)]/50 rounded-2xl border border-[var(--color-midnight-navy)]/5">
+                <h4 className="text-sm font-bold text-[var(--color-midnight-navy)] mb-2 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[var(--color-champagne-gold)]" /> Tip
+                </h4>
+                <p className="text-xs text-[var(--color-midnight-navy)]/60 leading-relaxed">
+                    여기에서 등록된 장소는 '내담자 예약하기' 팝업의 장소 선택 목록에 즉시 반영됩니다.
+                    자주 이용하시는 상담 센터나 지점 이름을 등록해 관리하세요.
+                </p>
             </div>
         </div>
     );

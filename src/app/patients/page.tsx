@@ -3,19 +3,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, Filter, Plus, Users, ArrowLeft } from "lucide-react";
+import { Search, Filter, Plus, Users, ArrowLeft, MessageSquare, X } from "lucide-react";
 import { ClientCard } from "@/components/patients/ClientCard";
-import { type Client } from "@prisma/client"; // Keep Client type
+import { MessageModal } from "@/components/patients/MessageModal";
+import { type Client, Prisma } from "@prisma/client";
 import { cn } from "@/lib/utils";
+import { sendSMS } from "@/services/smsService";
 import { usePersistence } from "@/hooks/usePersistence"; // New import
 
 import { NewClientModal } from "@/components/patients/NewClientModal";
 
 export default function PatientsPage() {
-    const { clients, isLoaded, addClient } = usePersistence(); // Replaced local state with usePersistence
+    const { clients, isLoaded, addClient, restartClient } = usePersistence();
     const [searchTerm, setSearchTerm] = useState("");
-
-    const [activeFilter, setActiveFilter] = useState<"all" | "attention" | "crisis" | "upcoming">("all");
+    const [activeFilter, setActiveFilter] = useState<"all" | "attention" | "crisis" | "upcoming" | "terminated">("upcoming");
+    const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     // const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS); // Removed
 
@@ -24,13 +28,18 @@ export default function PatientsPage() {
             (client.englishName && client.englishName.toLowerCase().includes(searchTerm.toLowerCase()));
 
         if (activeFilter === "upcoming") {
-            // Show only clients with valid future dates (simple check for now, can be improved)
             const hasNextSession = client.nextSession && client.nextSession !== "미정" && client.nextSession !== "Completed";
-            return matchesSearch && hasNextSession;
+            return matchesSearch && hasNextSession && client.status !== "terminated";
+        }
+
+        if (activeFilter === "terminated") {
+            return matchesSearch && client.status === "terminated";
         }
 
         const matchesFilter = activeFilter === "all" || client.status === activeFilter;
-        return matchesSearch && matchesFilter;
+        // Hide terminated from regular lists unless explicitly selected
+        const isNotTerminated = client.status !== "terminated";
+        return matchesSearch && matchesFilter && (activeFilter === "all" ? isNotTerminated : true);
     }).sort((a, b) => {
         if (activeFilter === "upcoming") {
             return new Date(a.nextSession).getTime() - new Date(b.nextSession).getTime();
@@ -38,7 +47,7 @@ export default function PatientsPage() {
         return 0; // Keep default order
     });
 
-    const handleRegisterClient = (newClient: Omit<Client, "id" | "createdAt" | "updatedAt">) => {
+    const handleRegisterClient = (newClient: Prisma.ClientCreateInput) => {
         addClient(newClient); // usePersistence addClient already expects this Partial type
         setIsModalOpen(false);
     };
@@ -85,15 +94,15 @@ export default function PatientsPage() {
                 {/* Filters */}
                 <div className="flex gap-2 p-1 bg-white rounded-xl border border-[var(--color-midnight-navy)]/5">
                     <button
-                        onClick={() => setActiveFilter("all")}
+                        onClick={() => setActiveFilter("upcoming")}
                         className={cn(
                             "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                            activeFilter === "all"
-                                ? "bg-[var(--color-midnight-navy)] text-white shadow-sm"
+                            activeFilter === "upcoming"
+                                ? "bg-teal-600 text-white shadow-sm"
                                 : "text-[var(--color-midnight-navy)]/60 hover:bg-[var(--color-midnight-navy)]/5"
                         )}
                     >
-                        전체
+                        예약 임박
                     </button>
                     <button
                         onClick={() => setActiveFilter("attention")}
@@ -118,32 +127,73 @@ export default function PatientsPage() {
                         위기 개입
                     </button>
                     <button
-                        onClick={() => setActiveFilter("upcoming")}
+                        onClick={() => setActiveFilter("all")}
                         className={cn(
                             "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                            activeFilter === "upcoming"
-                                ? "bg-teal-600 text-white shadow-sm"
+                            activeFilter === "all"
+                                ? "bg-[var(--color-midnight-navy)] text-white shadow-sm"
                                 : "text-[var(--color-midnight-navy)]/60 hover:bg-[var(--color-midnight-navy)]/5"
                         )}
                     >
-                        예약 임박
+                        전체
+                    </button>
+                    <button
+                        onClick={() => setActiveFilter("terminated")}
+                        className={cn(
+                            "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                            activeFilter === "terminated"
+                                ? "bg-gray-500 text-white shadow-sm"
+                                : "text-[var(--color-midnight-navy)]/60 hover:bg-[var(--color-midnight-navy)]/5"
+                        )}
+                    >
+                        종결
                     </button>
                 </div>
             </div>
+
+            {/* Bulk Selection Bar */}
+            {selectedClientIds.length > 0 && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[var(--color-midnight-navy)] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 z-40 animate-in slide-in-from-bottom-4 duration-300">
+                    <p className="text-sm">
+                        <span className="font-bold text-[var(--color-champagne-gold)]">{selectedClientIds.length}명</span> 선택됨
+                    </p>
+                    <div className="w-px h-4 bg-white/20" />
+                    <button
+                        onClick={() => setIsMessageModalOpen(true)}
+                        className="flex items-center gap-2 text-sm font-medium hover:text-[var(--color-champagne-gold)] transition-colors"
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        단체 문자 발송
+                    </button>
+                    <button
+                        onClick={() => setSelectedClientIds([])}
+                        className="text-white/40 hover:text-white transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredClients.length > 0 ? (
                     filteredClients.map(client => (
-                        <Link key={client.id} href={`/patients/${client.id}`}>
-                            <ClientCard
-                                name={client.name}
-                                status={client.status as "stable" | "attention" | "crisis"}
-                                nextSession={client.nextSession}
-                                lastSession={client.lastSession}
-                                tags={client.tags}
-                            />
-                        </Link>
+                        <ClientCard
+                            key={client.id}
+                            id={client.id}
+                            name={client.name}
+                            status={client.status as any}
+                            nextSession={client.nextSession}
+                            lastSession={client.lastSession}
+                            tags={client.tags}
+                            isSelected={selectedClientIds.includes(client.id)}
+                            onSelect={(id) => {
+                                setSelectedClientIds(prev =>
+                                    prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+                                );
+                            }}
+                            onRestart={restartClient}
+                        />
                     ))
                 ) : (
                     <div className="col-span-full py-20 text-center text-[var(--color-midnight-navy)]/40">
@@ -157,6 +207,12 @@ export default function PatientsPage() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onRegister={handleRegisterClient}
+            />
+
+            <MessageModal
+                isOpen={isMessageModalOpen}
+                onClose={() => setIsMessageModalOpen(false)}
+                clients={clients.filter(c => selectedClientIds.includes(c.id))}
             />
         </div>
     );

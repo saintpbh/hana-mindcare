@@ -17,6 +17,7 @@ model Client {
   lastSession       String
   nextSession       String
   sessionTime       String
+  sessionType       String?  // 'in-person', 'online', 'phone'
   location          String?
   isSessionCanceled Boolean  @default(false)
   terminatedAt      DateTime? // Date when counseling was terminated
@@ -74,8 +75,14 @@ model CounselingLog {
 model QuickNote {
   id        String   @id @default(uuid())
   content   String   @db.Text
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   deletedAt DateTime? // For soft delete
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
 }

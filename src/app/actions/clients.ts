@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { Client } from '@prisma/client'
+import { Client, Prisma } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 
 export async function getClients() {
@@ -21,6 +21,10 @@ export async function getClients() {
                 quickNotes: {
                     where: { deletedAt: null },
                     orderBy: { createdAt: 'desc' }
+                },
+                sessions: {
+                    orderBy: { date: 'desc' },
+                    take: 5
                 }
             }
         })
@@ -46,7 +50,7 @@ export async function updateClient(id: string, data: Partial<Client>) {
     }
 }
 
-export async function createClient(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function createClient(data: Prisma.ClientCreateInput) {
     try {
         const client = await prisma.client.create({
             data,
@@ -91,30 +95,92 @@ export async function terminateClient(id: string) {
 
 // ... existing imports
 
-export async function createQuickNote(clientName: string, content: string) {
+export async function createQuickNote(clientName: string | null, content: string) {
     try {
-        const client = await prisma.client.findFirst({
-            where: {
-                name: { contains: clientName, mode: 'insensitive' }
-            }
-        });
+        let clientId: string | null = null;
+        let finalClientName: string | null = null;
 
-        if (!client) {
-            return { success: false, error: 'Client not found' };
+        if (clientName) {
+            const client = await prisma.client.findFirst({
+                where: {
+                    name: { contains: clientName, mode: 'insensitive' }
+                }
+            });
+            if (client) {
+                clientId = client.id;
+                finalClientName = client.name;
+            }
         }
 
         const note = await prisma.quickNote.create({
             data: {
                 content,
-                clientId: client.id
+                clientId: clientId
+            },
+            include: {
+                client: {
+                    select: { name: true }
+                }
             }
         });
 
-        revalidatePath('/patients/[id]'); // Revalidate dynamic patient pages
-        return { success: true, data: { note, clientName: client.name } };
+        revalidatePath('/');
+        revalidatePath('/mobile-admin');
+        return { success: true, data: { note, clientName: finalClientName } };
     } catch (error) {
         console.error('Failed to create quick note:', error);
         return { success: false, error: 'Failed to create quick note' };
+    }
+}
+
+export async function getRecentQuickNotes(limit: number = 10) {
+    try {
+        const notes = await prisma.quickNote.findMany({
+            where: { deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            include: {
+                client: {
+                    select: { id: true, name: true }
+                }
+            }
+        });
+        return { success: true, data: notes };
+    } catch (error) {
+        console.error('Failed to fetch recent quick notes:', error);
+        return { success: false, error: 'Failed to fetch recent quick notes' };
+    }
+}
+
+export async function getAllQuickNotes() {
+    try {
+        const notes = await prisma.quickNote.findMany({
+            where: { deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                client: {
+                    select: { id: true, name: true }
+                }
+            }
+        });
+        return { success: true, data: notes };
+    } catch (error) {
+        console.error('Failed to fetch all quick notes:', error);
+        return { success: false, error: 'Failed to fetch all quick notes' };
+    }
+}
+
+export async function updateQuickNote(id: string, content: string) {
+    try {
+        const note = await prisma.quickNote.update({
+            where: { id },
+            data: { content }
+        });
+        revalidatePath('/');
+        return { success: true, data: note };
+    } catch (error) {
+        console.error('Failed to update quick note:', error);
+        return { success: false, error: 'Failed to update quick note' };
     }
 }
 
@@ -222,5 +288,21 @@ export async function restoreQuickNote(id: string) {
     } catch (error) {
         console.error('Failed to restore quick note:', error);
         return { success: false, error: 'Failed to restore quick note' };
+    }
+}
+export async function restartClient(id: string) {
+    try {
+        const client = await prisma.client.update({
+            where: { id },
+            data: {
+                status: 'stable',
+                terminatedAt: null
+            }
+        });
+        revalidatePath('/');
+        return { success: true, data: client };
+    } catch (error) {
+        console.error('Failed to restart client:', error);
+        return { success: false, error: 'Failed to restart counseling' };
     }
 }
