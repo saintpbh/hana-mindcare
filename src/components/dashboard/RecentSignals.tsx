@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { MessageSquare, Calendar, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function RecentSignals() {
     const SIGNALS = [
@@ -43,6 +44,25 @@ export function RecentSignals() {
         }
     ];
 
+    const router = useRouter();
+
+    const handleSignalClick = (signal: typeof SIGNALS[0]) => {
+        switch (signal.type) {
+            case 'log':
+            case 'message':
+                router.push(`/patients/${signal.id}?view=analysis`);
+                break;
+            case 'reschedule':
+                router.push('/schedule');
+                break;
+            case 'system':
+                // Prepare for future implementation or go to library/notifications
+                break;
+            default:
+                break;
+        }
+    };
+
     return (
         <div className="bg-white rounded-3xl p-6 border border-[var(--color-midnight-navy)]/5 shadow-sm h-full">
             <div className="flex justify-between items-center mb-4">
@@ -52,7 +72,11 @@ export function RecentSignals() {
 
             <div className="space-y-4">
                 {SIGNALS.map((signal) => (
-                    <div key={signal.id} className="flex gap-3 items-start group cursor-pointer p-2 rounded-xl hover:bg-[var(--color-midnight-navy)]/5 transition-colors">
+                    <div
+                        key={signal.id}
+                        onClick={() => handleSignalClick(signal)}
+                        className="flex gap-3 items-start group cursor-pointer p-2 rounded-xl hover:bg-[var(--color-midnight-navy)]/5 transition-colors"
+                    >
                         <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5", signal.color)}>
                             <signal.icon className="w-4 h-4" />
                         </div>

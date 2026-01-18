@@ -8,7 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import { PrescriptionModal } from "@/components/library/PrescriptionModal";
 import { EditClientModal } from "@/components/patients/EditClientModal";
 import { MessageModal } from "@/components/patients/MessageModal";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 import { usePersistence } from "@/hooks/usePersistence";
 import { useEffect, useState } from "react";
 

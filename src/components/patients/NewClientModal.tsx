@@ -4,12 +4,12 @@ import { useState } from "react";
 import { X, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 
 interface NewClientModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onRegister: (client: Client) => void;
+    onRegister: (client: Omit<Client, "id" | "createdAt" | "updatedAt">) => void;
 }
 
 export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalProps) {
@@ -25,10 +25,9 @@ export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalPr
     const handleRegister = () => {
         if (!name || !age || !condition) return;
 
-        const newClient: Client = {
-            id: Date.now().toString(),
+        const newClient: Omit<Client, "id" | "createdAt" | "updatedAt"> = {
             name,
-            englishName,
+            englishName: englishName || null,
             age: parseInt(age),
             gender,
             contact: contact || "010-0000-0000",
@@ -38,6 +37,7 @@ export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalPr
             nextSession: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // +7 days
             sessionTime: "14:00", // Default time
             isSessionCanceled: false,
+            location: null,
             tags: [],
             notes: notes || "상담 초기 단계입니다."
         };

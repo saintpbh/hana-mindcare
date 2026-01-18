@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Check, Calendar as CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 import { usePersistence } from "@/hooks/usePersistence";
 
 interface RescheduleModalProps {

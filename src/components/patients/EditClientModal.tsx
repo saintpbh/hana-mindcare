@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 
 interface EditClientModalProps {
     isOpen: boolean;
@@ -30,11 +30,11 @@ export function EditClientModal({ isOpen, onClose, onSave, client }: EditClientM
             setName(client.name);
             setEnglishName(client.englishName || "");
             setAge(client.age.toString());
-            setGender(client.gender);
+            setGender(client.gender as "Male" | "Female");
             setContact(client.contact);
             setLocation(client.location || "");
             setCondition(client.condition);
-            setStatus(client.status);
+            setStatus(client.status as "stable" | "attention" | "crisis");
             setNotes(client.notes);
         }
     }, [isOpen, client]);

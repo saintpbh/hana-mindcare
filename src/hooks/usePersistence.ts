@@ -1,79 +1,86 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Client, MOCK_CLIENTS } from "@/data/mockClients";
+// import { Client, MOCK_CLIENTS } from "@/data/mockClients"; // Deprecated
+import { getClients, updateClient as updateClientAction, createClient as createClientAction, deleteClient as deleteClientAction } from "@/app/actions/clients";
+import { type Client } from "@prisma/client"; // Use Prisma type
 
-const STORAGE_KEY = "hana-clients-v2";
+// Fallback or Initial Data could be MOCK if DB is empty, but better to just use DB
+// We need to match the type. Prisma Client has createdAt, updatedAt.
+// The UI might expect specific fields.
 
 export function usePersistence() {
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<"synced" | "saving" | "error">("synced");
 
-    // Initialize from localStorage or fallback to MOCK_CLIENTS
-    useEffect(() => {
-        const loadClients = () => {
-            const storedClients = localStorage.getItem(STORAGE_KEY);
-            if (storedClients) {
-                try {
-                    setClients(JSON.parse(storedClients));
-                } catch (e) {
-                    console.error("Failed to parse stored clients:", e);
-                    setClients(MOCK_CLIENTS);
-                }
-            } else {
-                setClients(MOCK_CLIENTS);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_CLIENTS));
-            }
+    const fetchClients = async () => {
+        const result = await getClients();
+        if (result.success && result.data) {
+            setClients(result.data);
             setIsLoaded(true);
-        };
+        }
+    };
 
-        loadClients();
+    useEffect(() => {
+        fetchClients();
 
-        // Listen for changes from other tabs/windows
-        const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === STORAGE_KEY) {
-                loadClients();
-            }
-        };
-
-        // Listen for changes from the same window (custom event)
-        const handleCustomEvent = (e: Event) => {
-            loadClients();
-        };
-
-        window.addEventListener("storage", handleStorageChange);
-        window.addEventListener("hana-storage-update", handleCustomEvent);
-
-        return () => {
-            window.removeEventListener("storage", handleStorageChange);
-            window.removeEventListener("hana-storage-update", handleCustomEvent);
-        };
+        // Optional: Polling for freshness
+        const interval = setInterval(fetchClients, 10000); // 10s polling
+        return () => clearInterval(interval);
     }, []);
 
-    // Save clients to localStorage whenever they change
-    const saveClients = (newClients: Client[]) => {
-        setClients(newClients);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newClients));
-        // Dispatch custom event to notify other hooks in the same window
-        window.dispatchEvent(new Event("hana-storage-update"));
+    const addClient = async (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
+        // Optimistic
+        setSyncStatus("saving");
+        // We don't have ID yet, so we can't easily optimistic update array unless we generate temp ID.
+        // For simplicity, wait for server response or generate temp ID.
+        // Let's rely on server for creation for now to ensure ID consistency.
+
+        const result = await createClientAction(client);
+        if (result.success && result.data) {
+            setClients(prev => [result.data!, ...prev]);
+            setSyncStatus("synced");
+        } else {
+            setSyncStatus("error");
+        }
     };
 
-    const addClient = (client: Client) => {
-        const newClients = [client, ...clients];
-        saveClients(newClients);
+    const updateClient = async (updatedClient: Client) => {
+        // Optimistic Update
+        setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+        setSyncStatus("saving");
+
+        // Server Action
+        // Extract ID and data
+        const { id, createdAt, updatedAt, ...data } = updatedClient;
+        const result = await updateClientAction(id, data);
+
+        if (result.success) {
+            setSyncStatus("synced");
+            // Optional: Update with server response to ensure consistency (e.g. updatedAt)
+            if (result.data) {
+                setClients(prev => prev.map(c => c.id === result.data!.id ? result.data! : c));
+            }
+        } else {
+            setSyncStatus("error");
+            // Revert? Complex without history. For now, alert or refetch.
+            fetchClients();
+        }
     };
 
-    const updateClient = (updatedClient: Client) => {
-        // Optimistic update for the caller
-        const newClients = clients.map((c) =>
-            c.id === updatedClient.id ? updatedClient : c
-        );
-        saveClients(newClients);
-    };
+    const deleteClient = async (clientId: string) => {
+        // Optimistic
+        setClients(prev => prev.filter(c => c.id !== clientId));
+        setSyncStatus("saving");
 
-    const deleteClient = (clientId: string) => {
-        const newClients = clients.filter((c) => c.id !== clientId);
-        saveClients(newClients);
+        const result = await deleteClientAction(clientId);
+        if (result.success) {
+            setSyncStatus("synced");
+        } else {
+            setSyncStatus("error");
+            fetchClients();
+        }
     };
 
     const getClient = (clientId: string) => {
@@ -86,6 +93,7 @@ export function usePersistence() {
         addClient,
         updateClient,
         deleteClient,
-        getClient
+        getClient,
+        syncStatus
     };
 }

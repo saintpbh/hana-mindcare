@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Calendar, Clock, FileText, Phone, MoreVertical, Search, AlertCircle, Edit2, MapPin } from "lucide-react";
 import { usePersistence } from "@/hooks/usePersistence";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 import { RescheduleModal } from "./RescheduleModal";
 import { cn } from "@/lib/utils";
 

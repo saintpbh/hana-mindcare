@@ -6,7 +6,7 @@ import { Search, Menu, Lock, CheckCircle2, ChevronLeft, X } from "lucide-react";
 import { QuickClientProfile } from "@/components/mobile-admin/QuickClientProfile";
 import { MobileSchedule } from "@/components/mobile-admin/MobileSchedule";
 import { usePersistence } from "@/hooks/usePersistence";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 
 export default function MobileAdminPage() {
     const { clients, isLoaded } = usePersistence();

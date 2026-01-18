@@ -4,7 +4,7 @@ import { useState } from "react";
 import { X, Send, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 import { sendSMS } from "@/services/smsService";
 
 interface MessageModalProps {

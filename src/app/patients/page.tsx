@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Search, Filter, Plus, Users, ArrowLeft } from "lucide-react";
 import { ClientCard } from "@/components/patients/ClientCard";
-import { Client } from "@/data/mockClients"; // Keep Client type, remove MOCK_CLIENTS
+import { type Client } from "@prisma/client"; // Keep Client type
 import { cn } from "@/lib/utils";
 import { usePersistence } from "@/hooks/usePersistence"; // New import
 
@@ -38,8 +38,8 @@ export default function PatientsPage() {
         return 0; // Keep default order
     });
 
-    const handleRegisterClient = (newClient: Client) => {
-        addClient(newClient);
+    const handleRegisterClient = (newClient: Omit<Client, "id" | "createdAt" | "updatedAt">) => {
+        addClient(newClient); // usePersistence addClient already expects this Partial type
         setIsModalOpen(false);
     };
 
@@ -135,7 +135,7 @@ export default function PatientsPage() {
                         <Link key={client.id} href={`/patients/${client.id}`}>
                             <ClientCard
                                 name={client.name}
-                                status={client.status}
+                                status={client.status as "stable" | "attention" | "crisis"}
                                 nextSession={client.nextSession}
                                 lastSession={client.lastSession}
                                 tags={client.tags}

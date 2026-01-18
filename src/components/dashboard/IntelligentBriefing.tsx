@@ -19,7 +19,7 @@ const INSIGHTS = [
         action: "수면 일지 확인",
         icon: Activity,
         color: "bg-rose-100 text-rose-600",
-        link: "/patients/1"
+        link: "/patients/1?view=analysis" // Direct to analysis/notes
     },
     {
         id: 2,
@@ -39,7 +39,7 @@ const INSIGHTS = [
         action: "지난 노트 보기",
         icon: Calendar,
         color: "bg-amber-100 text-amber-600",
-        link: "/patients/3"
+        link: "/patients/3?view=records" // Direct to records
     }
 ];
 
@@ -47,6 +47,13 @@ export function IntelligentBriefing({ className }: BriefingProps) {
     const [greeting, setGreeting] = useState("안녕하세요");
     const [currentTime, setCurrentTime] = useState("");
     const [activeInsightIndex, setActiveInsightIndex] = useState(0);
+
+    // Sort: Crisis first
+    const sortedInsights = [...INSIGHTS].sort((a, b) => {
+        if (a.type === 'crisis') return -1;
+        if (b.type === 'crisis') return 1;
+        return 0;
+    });
 
     useEffect(() => {
         const updateGreeting = () => {
@@ -64,8 +71,10 @@ export function IntelligentBriefing({ className }: BriefingProps) {
     }, []);
 
     const nextInsight = () => {
-        setActiveInsightIndex((prev) => (prev + 1) % INSIGHTS.length);
+        setActiveInsightIndex((prev) => (prev + 1) % sortedInsights.length);
     };
+
+    const currentInsight = sortedInsights[activeInsightIndex];
 
     return (
         <div className={cn("bg-white rounded-3xl p-8 border border-[var(--color-midnight-navy)]/5 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300", className)}>
@@ -111,7 +120,15 @@ export function IntelligentBriefing({ className }: BriefingProps) {
                 {/* Right: Insights Carousel */}
                 <div className="lg:col-span-2 relative h-full min-h-[180px]">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-semibold text-[var(--color-midnight-navy)]">주요 알림 및 인사이트</h3>
+                        <h3 className="font-semibold text-[var(--color-midnight-navy)] flex items-center gap-2">
+                            주요 알림 및 인사이트
+                            {sortedInsights[0].type === 'crisis' && (
+                                <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                </span>
+                            )}
+                        </h3>
                         <div className="flex gap-2">
                             <button
                                 onClick={nextInsight}
@@ -132,12 +149,23 @@ export function IntelligentBriefing({ className }: BriefingProps) {
                                 transition={{ duration: 0.2 }}
                                 className="w-full"
                             >
-                                <Link href={INSIGHTS[activeInsightIndex].link} className="block">
-                                    <div className="p-6 rounded-2xl bg-white border border-[var(--color-midnight-navy)]/10 hover:border-[var(--color-champagne-gold)]/50 transition-colors shadow-sm group/card cursor-pointer">
+                                <Link href={currentInsight.link} className="block">
+                                    <div className={cn(
+                                        "p-6 rounded-2xl border transition-all shadow-sm group/card cursor-pointer relative overflow-hidden",
+                                        currentInsight.type === 'crisis'
+                                            ? "bg-rose-50/30 border-rose-200 hover:border-rose-400 shadow-rose-100"
+                                            : "bg-white border-[var(--color-midnight-navy)]/10 hover:border-[var(--color-champagne-gold)]/50"
+                                    )}>
+                                        {currentInsight.type === 'crisis' && (
+                                            <div className="absolute top-0 right-0 px-3 py-1 bg-rose-100 text-rose-600 text-[10px] font-bold rounded-bl-xl">
+                                                PRIORITY
+                                            </div>
+                                        )}
+
                                         <div className="flex gap-5 items-start">
-                                            <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", INSIGHTS[activeInsightIndex].color)}>
+                                            <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", currentInsight.color)}>
                                                 {(() => {
-                                                    const InsightIcon = INSIGHTS[activeInsightIndex].icon;
+                                                    const InsightIcon = currentInsight.icon;
                                                     return <InsightIcon className="w-6 h-6" />;
                                                 })()}
                                             </div>
@@ -145,10 +173,15 @@ export function IntelligentBriefing({ className }: BriefingProps) {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <h4 className="text-lg font-bold text-[var(--color-midnight-navy)] flex items-center gap-2">
-                                                            {INSIGHTS[activeInsightIndex].client}
-                                                            <span className="text-xs font-normal px-2 py-0.5 bg-[var(--color-midnight-navy)]/5 rounded-full text-[var(--color-midnight-navy)]/60">
-                                                                {INSIGHTS[activeInsightIndex].type === "crisis" ? "위기 개입" :
-                                                                    INSIGHTS[activeInsightIndex].type === "intake" ? "초기 면담" : "정기 상담"}
+                                                            {currentInsight.client}
+                                                            <span className={cn(
+                                                                "text-xs font-normal px-2 py-0.5 rounded-full",
+                                                                currentInsight.type === 'crisis'
+                                                                    ? "bg-rose-100 text-rose-600 font-bold"
+                                                                    : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/60"
+                                                            )}>
+                                                                {currentInsight.type === "crisis" ? "위기 개입" :
+                                                                    currentInsight.type === "intake" ? "초기 면담" : "정기 상담"}
                                                             </span>
                                                         </h4>
                                                     </div>
@@ -157,11 +190,11 @@ export function IntelligentBriefing({ className }: BriefingProps) {
                                                     </span>
                                                 </div>
                                                 <p className="text-[var(--color-midnight-navy)]/70 mt-2 leading-relaxed">
-                                                    {INSIGHTS[activeInsightIndex].message}
+                                                    {currentInsight.message}
                                                 </p>
                                                 <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[var(--color-midnight-navy)] bg-[var(--color-midnight-navy)]/5 px-3 py-1.5 rounded-lg">
                                                     <Sparkles className="w-3.5 h-3.5" />
-                                                    {INSIGHTS[activeInsightIndex].action}
+                                                    {currentInsight.action}
                                                 </div>
                                             </div>
                                         </div>

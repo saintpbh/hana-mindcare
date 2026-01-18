@@ -4,7 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Clock, MapPin, ChevronRight, CalendarOff, AlertOctagon } from "lucide-react";
 import { usePersistence } from "@/hooks/usePersistence";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 
 interface MobileScheduleProps {
     onSelectClient: (client: Client) => void;

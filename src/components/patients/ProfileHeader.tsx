@@ -1,5 +1,5 @@
 import { Shield, Sparkles, MessageCircle, Calendar, Send, Edit3, MessageSquare } from "lucide-react";
-import { Client } from "@/data/mockClients";
+import { type Client } from "@prisma/client";
 import { cn } from "@/lib/utils";
 
 interface ProfileHeaderProps {
