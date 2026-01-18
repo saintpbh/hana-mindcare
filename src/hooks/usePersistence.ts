@@ -11,25 +11,51 @@ export function usePersistence() {
 
     // Initialize from localStorage or fallback to MOCK_CLIENTS
     useEffect(() => {
-        const storedClients = localStorage.getItem(STORAGE_KEY);
-        if (storedClients) {
-            try {
-                setClients(JSON.parse(storedClients));
-            } catch (e) {
-                console.error("Failed to parse stored clients:", e);
+        const loadClients = () => {
+            const storedClients = localStorage.getItem(STORAGE_KEY);
+            if (storedClients) {
+                try {
+                    setClients(JSON.parse(storedClients));
+                } catch (e) {
+                    console.error("Failed to parse stored clients:", e);
+                    setClients(MOCK_CLIENTS);
+                }
+            } else {
                 setClients(MOCK_CLIENTS);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_CLIENTS));
             }
-        } else {
-            setClients(MOCK_CLIENTS);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_CLIENTS));
-        }
-        setIsLoaded(true);
+            setIsLoaded(true);
+        };
+
+        loadClients();
+
+        // Listen for changes from other tabs/windows
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === STORAGE_KEY) {
+                loadClients();
+            }
+        };
+
+        // Listen for changes from the same window (custom event)
+        const handleCustomEvent = (e: Event) => {
+            loadClients();
+        };
+
+        window.addEventListener("storage", handleStorageChange);
+        window.addEventListener("hana-storage-update", handleCustomEvent);
+
+        return () => {
+            window.removeEventListener("storage", handleStorageChange);
+            window.removeEventListener("hana-storage-update", handleCustomEvent);
+        };
     }, []);
 
     // Save clients to localStorage whenever they change
     const saveClients = (newClients: Client[]) => {
         setClients(newClients);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newClients));
+        // Dispatch custom event to notify other hooks in the same window
+        window.dispatchEvent(new Event("hana-storage-update"));
     };
 
     const addClient = (client: Client) => {
@@ -38,6 +64,7 @@ export function usePersistence() {
     };
 
     const updateClient = (updatedClient: Client) => {
+        // Optimistic update for the caller
         const newClients = clients.map((c) =>
             c.id === updatedClient.id ? updatedClient : c
         );
