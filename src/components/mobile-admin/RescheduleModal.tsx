@@ -39,7 +39,12 @@ export function RescheduleModal({ isOpen, onClose, client }: RescheduleModalProp
 
     // Conflict Detection
     const getSlotStatus = (time: string) => {
-        const conflict = clients.find(c => c.nextSession === selectedDate && c.sessionTime === time && c.id !== client.id);
+        const conflict = clients.find(c =>
+            c.nextSession === selectedDate &&
+            c.sessionTime === time &&
+            c.id !== client.id &&
+            !c.isSessionCanceled // Ignore canceled sessions
+        );
         if (conflict) return { status: "busy", name: conflict.name };
         return { status: "available", name: null };
     };
@@ -49,7 +54,8 @@ export function RescheduleModal({ isOpen, onClose, client }: RescheduleModalProp
             updateClient({
                 ...client,
                 nextSession: selectedDate,
-                sessionTime: selectedTime
+                sessionTime: selectedTime,
+                isSessionCanceled: false // Reset cancel status on reschedule
             });
             onClose();
         }
@@ -60,7 +66,8 @@ export function RescheduleModal({ isOpen, onClose, client }: RescheduleModalProp
         const nextWeek = new Date(new Date(client.nextSession).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         updateClient({
             ...client,
-            nextSession: nextWeek
+            nextSession: nextWeek,
+            isSessionCanceled: false // Reset cancel status on reschedule
         });
         onClose();
     };

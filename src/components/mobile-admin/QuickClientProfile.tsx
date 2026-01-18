@@ -1,10 +1,9 @@
-"use client";
-
 import { useState } from "react";
 import { Calendar, Clock, FileText, Phone, MoreVertical, Search, AlertCircle, Edit2 } from "lucide-react";
 import { usePersistence } from "@/hooks/usePersistence";
 import { Client } from "@/data/mockClients";
 import { RescheduleModal } from "./RescheduleModal";
+import { cn } from "@/lib/utils";
 
 interface QuickClientProfileProps {
     client: Client;
@@ -31,6 +30,12 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
 
     const isCrisis = client.status === "crisis";
 
+    const handleCancelSession = () => {
+        if (confirm("정말로 금일 상담을 취소하시겠습니까?\n(일정은 유지되지만 '취소됨'으로 표시됩니다.)")) {
+            updateClient({ ...client, isSessionCanceled: true });
+        }
+    };
+
     return (
         <>
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-midnight-navy)]/5 relative overflow-hidden">
@@ -40,7 +45,13 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                             {client.name.substring(0, 1)}
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-[var(--color-midnight-navy)]">{client.name}</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-bold text-[var(--color-midnight-navy)]">{client.name}</h2>
+                                {client.isSessionCanceled && (
+                                    <span className="text-[10px] font-bold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded">취소됨</span>
+                                )}
+                            </div>
+
                             {isCrisis ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 text-rose-600 text-xs font-bold mt-1">
                                     <AlertCircle className="w-3 h-3" />
@@ -71,7 +82,9 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                         <Edit2 className="w-3 h-3 absolute top-2 right-2 text-[var(--color-midnight-navy)]/20" />
                         <span className="text-xs text-[var(--color-midnight-navy)]/40 block mb-1">다음 예약 (터치하여 변경)</span>
                         <div className="flex items-center gap-1">
-                            <span className="font-medium text-[var(--color-midnight-navy)]">{client.nextSession}</span>
+                            <span className={cn("font-medium text-[var(--color-midnight-navy)]", client.isSessionCanceled && "line-through opacity-50")}>
+                                {client.nextSession}
+                            </span>
                             {client.sessionTime && <span className="text-xs text-[var(--color-midnight-navy)]/60">({client.sessionTime})</span>}
                         </div>
                     </div>
@@ -85,13 +98,24 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                 </div>
 
                 <div className="space-y-2">
-                    <button
-                        onClick={() => setIsRescheduleOpen(true)}
-                        className="w-full py-3 bg-[var(--color-midnight-navy)] text-white rounded-xl font-medium flex items-center justify-center gap-2 shadow-lg shadow-[var(--color-midnight-navy)]/20 active:scale-[0.98] transition-transform"
-                    >
-                        <Calendar className="w-4 h-4" />
-                        일정 변경 (Smart Reschedule)
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setIsRescheduleOpen(true)}
+                            className="flex-1 py-3 bg-[var(--color-midnight-navy)] text-white rounded-xl font-medium flex items-center justify-center gap-2 shadow-lg shadow-[var(--color-midnight-navy)]/20 active:scale-[0.98] transition-transform"
+                        >
+                            <Calendar className="w-4 h-4" />
+                            일정 변경
+                        </button>
+                        {!client.isSessionCanceled && (
+                            <button
+                                onClick={handleCancelSession}
+                                className="px-4 py-3 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl font-medium active:scale-[0.98] transition-transform whitespace-nowrap"
+                            >
+                                취소
+                            </button>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={handleAddNote}

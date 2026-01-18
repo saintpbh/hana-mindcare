@@ -9,6 +9,7 @@ export interface Client {
     lastSession: string;
     nextSession: string;
     sessionTime: string; // New field for time slot
+    isSessionCanceled?: boolean; // New field for cancellation status
     tags: string[];
     notes: string;
     contact: string;
