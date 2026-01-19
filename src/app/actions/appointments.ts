@@ -81,6 +81,8 @@ export async function getNextSession() {
     }
 }
 
+import { createZoomMeeting } from '@/lib/zoom';
+
 export async function createAppointment(data: {
     clientId: string,
     date: string, // YYYY-MM-DD
@@ -92,6 +94,16 @@ export async function createAppointment(data: {
 }) {
     try {
         const dateTime = new Date(`${data.date}T${data.time}:00`);
+        let meetingLink = null;
+
+        // Auto-create Zoom link if type implies video/remote
+        if (data.type.includes('비대면') || data.type.includes('Video') || data.type.includes('Zoom')) {
+            meetingLink = await createZoomMeeting(
+                `${data.type} - 상담 예약`,
+                dateTime,
+                data.duration
+            );
+        }
 
         const session = await prisma.session.create({
             data: {
@@ -105,6 +117,7 @@ export async function createAppointment(data: {
                 summary: data.notes || "", // Map notes to summary/notes?
                 notes: data.notes,
                 sentiment: 'Neutral', // Default
+                meetingLink: meetingLink
             }
         });
 

@@ -13,10 +13,12 @@ const TABS = [
     { id: "general", label: "일반 (General)", icon: Globe },
     { id: "locations", label: "상담 장소 (Locations)", icon: MapPinIcon },
     { id: "ai", label: "AI 설정 (Intelligence)", icon: Sparkles },
+    { id: "zoom", label: "Zoom 연동 (Zoom)", icon: Video },
 ];
 
-import { MapPin as MapPinIcon, Plus, Trash2 } from "lucide-react";
+import { MapPin as MapPinIcon, Plus, Trash2, Video } from "lucide-react";
 import { getLocations, addLocation, deleteLocation } from "@/app/actions/locations";
+import { saveSetting, getSetting } from "@/app/actions/settings";
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState("account");
@@ -64,8 +66,97 @@ export default function SettingsPage() {
                             {activeTab === "general" && <GeneralSettings />}
                             {activeTab === "locations" && <LocationManagement />}
                             {activeTab === "ai" && <AISettings />}
+                            {activeTab === "zoom" && <ZoomSettings />}
                         </motion.div>
                     </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ... existing components ...
+
+function ZoomSettings() {
+    const [accountId, setAccountId] = useState("");
+    const [clientId, setClientId] = useState("");
+    const [clientSecret, setClientSecret] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        // Load settings from DB
+        const load = async () => {
+            const acc = await getSetting('ZOOM_ACCOUNT_ID');
+            const cli = await getSetting('ZOOM_CLIENT_ID');
+            const sec = await getSetting('ZOOM_CLIENT_SECRET');
+
+            if (acc.success) setAccountId(acc.data || "");
+            if (cli.success) setClientId(cli.data || "");
+            if (sec.success) setClientSecret(sec.data || "");
+            setIsLoading(false);
+        };
+        load();
+    }, []);
+
+    const handleSave = async () => {
+        setIsLoading(true);
+        await saveSetting('ZOOM_ACCOUNT_ID', accountId);
+        await saveSetting('ZOOM_CLIENT_ID', clientId);
+        await saveSetting('ZOOM_CLIENT_SECRET', clientSecret);
+        setIsLoading(false);
+        alert("Zoom 설정이 저장되었습니다.");
+    };
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">Zoom 연동 설정</h3>
+                <p className="text-sm text-[var(--color-midnight-navy)]/60 mb-8 leading-relaxed">
+                    상담 예약 시 Zoom 회의 링크를 자동으로 생성하기 위해 Server-to-Server OAuth 앱 정보를 입력해주세요.<br />
+                    <a href="https://marketplace.zoom.us/" target="_blank" className="text-blue-600 underline">Zoom App Marketplace</a>에서 앱을 생성하고 자격 증명을 확인하세요.
+                </p>
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Account ID</label>
+                        <input
+                            type="text"
+                            value={accountId}
+                            onChange={(e) => setAccountId(e.target.value)}
+                            placeholder="Zoom Account ID"
+                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Client ID</label>
+                        <input
+                            type="text"
+                            value={clientId}
+                            onChange={(e) => setClientId(e.target.value)}
+                            placeholder="Zoom App Client ID"
+                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Client Secret</label>
+                        <input
+                            type="password"
+                            value={clientSecret}
+                            onChange={(e) => setClientSecret(e.target.value)}
+                            placeholder="Zoom App Client Secret"
+                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                        />
+                    </div>
+                </div>
+
+                <div className="pt-6">
+                    <button
+                        onClick={handleSave}
+                        disabled={isLoading}
+                        className="bg-[var(--color-midnight-navy)] text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors disabled:opacity-50"
+                    >
+                        {isLoading ? "저장 중..." : "설정 저장하기"}
+                    </button>
                 </div>
             </div>
         </div>

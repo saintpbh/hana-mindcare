@@ -322,7 +322,7 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
                                     key={type.id}
                                     onClick={() => setSelectedType(type.id)}
                                     className={cn(
-                                        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all",
+                                        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all relative overflow-hidden",
                                         selectedType === type.id
                                             ? "bg-white border-[var(--color-midnight-navy)] shadow-md text-[var(--color-midnight-navy)]"
                                             : "bg-[var(--color-warm-white)]/50 border-transparent text-gray-400 hover:border-[var(--color-midnight-navy)]/10"
@@ -330,6 +330,11 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
                                 >
                                     <type.icon className="w-5 h-5" />
                                     <span className="text-[10px] font-bold">{type.label}</span>
+                                    {type.id === 'online' && selectedType === 'online' && (
+                                        <div className="absolute top-0 right-0 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-bl-lg font-bold">
+                                            Zoom Auto
+                                        </div>
+                                    )}
                                 </button>
                             ))}
                         </div>

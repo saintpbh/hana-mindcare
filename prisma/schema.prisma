@@ -54,6 +54,8 @@ model Session {
   notes       String?  @db.Text // Counselor's session notes
   counselingLog CounselingLog?
   
+  meetingLink String?  // Zoom Meeting URL
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -92,4 +94,12 @@ model Location {
   id        String   @id @default(uuid())
   name      String   @unique
   createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

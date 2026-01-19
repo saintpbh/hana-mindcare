@@ -73,14 +73,20 @@ export function ScheduleDetailPanel({ appointment, onClose, onEdit }: ScheduleDe
 
                             <div className="flex items-start gap-3">
                                 <div className="p-2 rounded-lg bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]">
-                                    <MapPin className="w-4 h-4" />
+                                    {appointment.type.includes('비대면') ? <Video className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
                                 </div>
                                 <div>
                                     <div className="text-sm font-bold text-[var(--color-midnight-navy)]">
-                                        {appointment.location || "양재 센터"}
+                                        {appointment.type.includes('비대면') ? '비대면 화상 상담 (Zoom)' : (appointment.location || "양재 센터")}
                                     </div>
                                     <div className="text-sm text-[var(--color-midnight-navy)]/70">
-                                        상담실 302호
+                                        {appointment.meetingLink ? (
+                                            <a href={appointment.meetingLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                                                Zoom 회의 참가 <Video className="w-3 h-3" />
+                                            </a>
+                                        ) : (
+                                            appointment.type.includes('비대면') ? '링크 생성 중...' : '상담실 302호'
+                                        )}
                                     </div>
                                 </div>
                             </div>
