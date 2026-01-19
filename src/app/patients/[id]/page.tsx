@@ -11,6 +11,8 @@ import { MessageModal } from "@/components/patients/MessageModal";
 import { ScheduleModal } from "@/components/patients/ScheduleModal";
 import { getClientWithHistory, updateClient, terminateClient, deleteQuickNote, restoreQuickNote } from "@/app/actions/clients";
 import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 // import { type Client, type Session } from "@prisma/client";
 type Client = any;
 type Session = any;
@@ -35,6 +37,7 @@ export default function PatientPage() {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isMessageOpen, setIsMessageOpen] = useState(false);
     const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+    const [isTerminateOpen, setIsTerminateOpen] = useState(false);
 
     useEffect(() => {
         const fetchClient = async () => {
@@ -72,15 +75,18 @@ export default function PatientPage() {
         setIsScheduleOpen(true);
     };
 
-    const handleTerminate = async () => {
+    const handleTerminate = () => {
+        setIsTerminateOpen(true);
+    };
+
+    const handleConfirmTerminate = async () => {
         if (!client) return;
-        if (!confirm(`${client.name}님의 상담을 종결하시겠습니까?\n종결 후에는 '종결된 상담' 목록에서 확인할 수 있습니다.`)) return;
 
         const result = await terminateClient(client.id);
         if (result.success) {
-            alert("상담이 종결되었습니다.");
             // Refresh client data
             setClient((prev: any) => prev ? { ...prev, status: 'terminated' } : null);
+            setIsTerminateOpen(false);
         } else {
             alert("처리 중 오류가 발생했습니다.");
         }
@@ -136,7 +142,7 @@ export default function PatientPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left: Mood & Stats */}
                     <div className="space-y-8">
-                        <MoodCalendar />
+                        <MoodCalendar clientId={client.id} />
 
                         <div className="bg-white rounded-2xl p-6 border border-[var(--color-midnight-navy)]/5 shadow-sm">
                             <h3 className="font-semibold text-[var(--color-midnight-navy)] mb-4">참여 통계 (Engagement)</h3>
@@ -274,6 +280,7 @@ export default function PatientPage() {
                 isOpen={isPrescribeOpen}
                 onClose={() => setIsPrescribeOpen(false)}
                 resourceTitle="추천 콘텐츠"
+                clientId={client.id}
             />
 
             <EditClientModal
@@ -294,6 +301,40 @@ export default function PatientPage() {
                 onClose={() => setIsScheduleOpen(false)}
                 client={client}
             />
+
+            {/* Terminate Confirmation Modal */}
+            <Dialog open={isTerminateOpen} onOpenChange={setIsTerminateOpen}>
+                <DialogContent className="max-w-md bg-white rounded-3xl p-8 border-none shadow-2xl overflow-hidden">
+                    <DialogHeader className="mb-4">
+                        <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                            <AlertCircle className="w-8 h-8 text-rose-500" />
+                        </div>
+                        <DialogTitle className="text-2xl font-serif text-[var(--color-midnight-navy)] text-center">
+                            상담을 종결하시겠습니까?
+                        </DialogTitle>
+                        <DialogDescription className="text-center text-[var(--color-midnight-navy)]/60 pt-2 leading-relaxed">
+                            <strong className="text-[var(--color-midnight-navy)]">{client.name}</strong>님의 모든 상담 과정이 종료됩니다.<br />
+                            종결된 상담은 별도 목록에서 관리됩니다.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter className="flex gap-3 mt-4 sm:justify-center">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setIsTerminateOpen(false)}
+                            className="flex-1 h-12 rounded-xl text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)] hover:bg-[var(--color-warm-white)] font-medium"
+                        >
+                            돌아가기
+                        </Button>
+                        <Button
+                            onClick={handleConfirmTerminate}
+                            className="flex-1 h-12 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-medium shadow-lg shadow-rose-200"
+                        >
+                            종결하기
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div >
     );
 }

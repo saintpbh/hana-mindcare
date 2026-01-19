@@ -33,6 +33,29 @@ model Client {
   
   counselorId       String?
   counselor         Counselor? @relation(fields: [counselorId], references: [id])
+  
+  moods             Mood[]
+  prescriptions     Prescription[]
+}
+
+model Mood {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  score     Int      // 1: Bad, 2: Neutral, 3: Good
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model Prescription {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title       String
+  type        String   // 'video', 'article', 'audio'
+  description String?
+  contentUrl  String?
+  createdAt   DateTime @default(now())
 }
 
 model Counselor {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Send, Check, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPrescription as savePrescription } from "@/app/actions/prescriptions";
 
 interface PrescriptionModalProps {
     isOpen: boolean;
@@ -10,10 +11,19 @@ interface PrescriptionModalProps {
     resourceTitle: string;
 }
 
-export function PrescriptionModal({ isOpen, onClose, resourceTitle }: PrescriptionModalProps) {
+export function PrescriptionModal({ isOpen, onClose, resourceTitle, clientId }: PrescriptionModalProps & { clientId?: string }) {
     const [step, setStep] = useState<"select" | "sent">("select");
+    const [note, setNote] = useState("");
 
-    const handleSend = () => {
+    const handleSend = async () => {
+        if (clientId) {
+            await savePrescription({
+                clientId,
+                title: resourceTitle,
+                type: 'article', // Default
+                description: note
+            });
+        }
         setStep("sent");
         setTimeout(() => {
             onClose();
@@ -68,7 +78,8 @@ export function PrescriptionModal({ isOpen, onClose, resourceTitle }: Prescripti
                                         <textarea
                                             className="w-full h-24 p-3 rounded-lg border border-[var(--color-midnight-navy)]/10 text-sm focus:outline-none focus:border-[var(--color-midnight-navy)] resize-none transition-colors"
                                             placeholder="내담자에게 보낼 메시지를 입력하세요..."
-                                            defaultValue="지난 상담에서 이야기 나눈 수면 문제에 도움이 될 것 같아 보내드립니다."
+                                            value={note}
+                                            onChange={(e) => setNote(e.target.value)}
                                         />
                                     </div>
                                 </div>

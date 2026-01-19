@@ -13,16 +13,32 @@ function generateDays(year: number) {
     return days;
 }
 
-export function MoodCalendar() {
-    const data = generateDays(2025);
+import { useEffect, useState } from "react";
+import { getClientMoods } from "@/app/actions/mood";
 
-    // 0: Missing, 1: Very Low, 2: Low, 3: Neutral, 4: High/Good
+export function MoodCalendar({ clientId }: { clientId: string }) {
+    const [data, setData] = useState<number[]>([]);
+
+    useEffect(() => {
+        const fetchMoods = async () => {
+            const res = await getClientMoods(clientId);
+            if (res.success && res.data) {
+                // Map to a status distribution or keep as list.
+                // For simplicity, let's map the last 365 days.
+                const scores = res.data.map((m: any) => m.score);
+                // Fill up to 365 if less? Or just show what we have.
+                setData(scores);
+            }
+        };
+        fetchMoods();
+    }, [clientId]);
+
+    // 0: Missing/Empty, 1: Bad, 2: Neutral, 3: Good
     const colors = [
         "bg-gray-100", // 0
         "bg-[var(--color-midnight-navy)]/80", // 1 (Bad)
         "bg-[var(--color-midnight-navy)]/40", // 2
-        "bg-[var(--color-champagne-gold)]/40", // 3
-        "bg-[var(--color-champagne-gold)]" // 4 (Good)
+        "bg-[var(--color-champagne-gold)]" // 3 (Good)
     ];
 
     return (
@@ -34,7 +50,6 @@ export function MoodCalendar() {
                     <div className="flex gap-1">
                         <div className="w-3 h-3 rounded-sm bg-[var(--color-midnight-navy)]/80" />
                         <div className="w-3 h-3 rounded-sm bg-[var(--color-midnight-navy)]/40" />
-                        <div className="w-3 h-3 rounded-sm bg-[var(--color-champagne-gold)]/40" />
                         <div className="w-3 h-3 rounded-sm bg-[var(--color-champagne-gold)]" />
                     </div>
                     <span className="text-[var(--color-midnight-navy)]/40">안정</span>
@@ -42,13 +57,17 @@ export function MoodCalendar() {
             </div>
 
             <div className="flex flex-wrap gap-1">
-                {data.map((mood, i) => (
-                    <div
-                        key={i}
-                        className={cn("w-3 h-3 rounded-sm transition-all hover:scale-125 hover:z-10 cursor-pointer", colors[mood])}
-                        title={`Day ${i + 1}: Sentiment Level ${mood}`}
-                    />
-                ))}
+                {data.length === 0 ? (
+                    <div className="w-full py-8 text-center text-gray-300 text-sm italic">기록된 기분이 없습니다.</div>
+                ) : (
+                    data.map((mood, i) => (
+                        <div
+                            key={i}
+                            className={cn("w-3 h-3 rounded-sm transition-all hover:scale-125 hover:z-10 cursor-pointer", colors[mood] || colors[0])}
+                            title={`Entry ${i + 1}: Level ${mood}`}
+                        />
+                    ))
+                )}
             </div>
         </div>
     );

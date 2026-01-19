@@ -4,23 +4,24 @@ import { useState } from "react";
 import { Smile, Meh, Frown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function MoodLogger() {
+import { saveMood } from "@/app/actions/mood";
+
+export function MoodLogger({ clientId }: { clientId: string }) {
     const [selectedMood, setSelectedMood] = useState<number | null>(null);
     const [isSaved, setIsSaved] = useState(false);
 
     const moods = [
-        { id: 1, icon: Frown, label: "우울해", color: "text-rose-400" },
-        { id: 2, icon: Meh, label: "그저 그래", color: "text-amber-400" },
-        { id: 3, icon: Smile, label: "괜찮아", color: "text-emerald-400" },
+        { id: 1, icon: Frown, label: "우울해", color: "text-rose-400", score: 1 },
+        { id: 2, icon: Meh, label: "그저 그래", color: "text-amber-400", score: 2 },
+        { id: 3, icon: Smile, label: "괜찮아", color: "text-emerald-400", score: 3 },
     ];
 
-    const handleSelect = (id: number) => {
-        setSelectedMood(id);
+    const handleSelect = async (score: number) => {
+        setSelectedMood(score);
         setIsSaved(false);
-        // Simulate API call/persistence
-        setTimeout(() => {
-            setIsSaved(true);
-        }, 800);
+
+        await saveMood(clientId, score);
+        setIsSaved(true);
     };
 
     return (
@@ -31,10 +32,10 @@ export function MoodLogger() {
                 {moods.map((mood) => (
                     <button
                         key={mood.id}
-                        onClick={() => handleSelect(mood.id)}
+                        onClick={() => handleSelect(mood.score)}
                         className={cn(
                             "flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl transition-all",
-                            selectedMood === mood.id
+                            selectedMood === mood.score
                                 ? "bg-[var(--color-midnight-navy)]/5 scale-105 shadow-inner"
                                 : "hover:bg-[var(--color-warm-white)]"
                         )}
@@ -42,12 +43,12 @@ export function MoodLogger() {
                         <mood.icon
                             className={cn(
                                 "w-8 h-8 transition-colors",
-                                selectedMood === mood.id ? mood.color : "text-[var(--color-midnight-navy)]/20"
+                                selectedMood === mood.score ? mood.color : "text-[var(--color-midnight-navy)]/20"
                             )}
                         />
                         <span className={cn(
                             "text-xs font-medium",
-                            selectedMood === mood.id ? "text-[var(--color-midnight-navy)]" : "text-[var(--color-midnight-navy)]/40"
+                            selectedMood === mood.score ? "text-[var(--color-midnight-navy)]" : "text-[var(--color-midnight-navy)]/40"
                         )}>
                             {mood.label}
                         </span>

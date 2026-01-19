@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Send, MessageSquare } from "lucide-react";
+import { X, Send, MessageSquare, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 type Client = any;
@@ -23,6 +23,13 @@ const TEMPLATES = [
 export function MessageModal({ isOpen, onClose, clients = [] }: MessageModalProps) {
     const [message, setMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [includeMobileLink, setIncludeMobileLink] = useState(true);
+
+    const getFullMessage = (baseMessage: string, client: any) => {
+        if (!includeMobileLink) return baseMessage;
+        const link = `${window.location.origin}/mobile/${client.id}`;
+        return `${baseMessage}\n\n개인 페이지: ${link}`;
+    };
 
     const handleSend = async () => {
         if (clients.length === 0 || !message) return;
@@ -34,10 +41,11 @@ export function MessageModal({ isOpen, onClose, clients = [] }: MessageModalProp
         try {
             // Send to each client
             for (const client of clients) {
+                const finalMessage = getFullMessage(message, client);
                 const response = await sendSMS({
                     to: client.contact,
-                    body: message,
-                    type: "LMS" // Default to LMS for generated messages
+                    body: finalMessage,
+                    type: finalMessage.length > 80 ? "LMS" : "SMS"
                 });
 
                 if (response.success) successCount++;
@@ -130,7 +138,22 @@ export function MessageModal({ isOpen, onClose, clients = [] }: MessageModalProp
                                 className="w-full p-4 h-40 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)] resize-none focus:outline-none focus:border-[var(--color-midnight-navy)]/30 transition-colors"
                                 placeholder="전송할 내용을 입력하세요..."
                             />
-                            <div className="flex justify-end">
+                            <div className="flex justify-between items-center">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <div className={cn(
+                                        "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                                        includeMobileLink ? "bg-[var(--color-midnight-navy)] border-[var(--color-midnight-navy)]" : "border-gray-300"
+                                    )}>
+                                        {includeMobileLink && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={includeMobileLink}
+                                        onChange={(e) => setIncludeMobileLink(e.target.checked)}
+                                    />
+                                    <span className="text-xs text-[var(--color-midnight-navy)]/60 group-hover:text-[var(--color-midnight-navy)]">개인 모바일 링크 포함</span>
+                                </label>
                                 <span className={cn("text-xs", message.length > 80 ? "text-orange-500" : "text-[var(--color-midnight-navy)]/40")}>
                                     {message.length}자 ({message.length > 80 ? "LMS" : "SMS"})
                                 </span>

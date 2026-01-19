@@ -103,6 +103,17 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
         }
     }, [isOpen, activeClient, locations, initialDate]);
 
+    const [busySlots, setBusySlots] = useState<{ time: string, name: string }[]>([]);
+
+    useEffect(() => {
+        const fetchAvailability = async () => {
+            const { checkAvailability } = await import("@/app/actions/appointments");
+            const res = await checkAvailability(selectedDate);
+            if (res.success) setBusySlots(res.data || []);
+        };
+        if (isOpen) fetchAvailability();
+    }, [selectedDate, isOpen]);
+
     if (!isOpen || !activeClient) return null;
 
     const timeSlots = [
@@ -110,8 +121,8 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     ];
 
     const getSlotStatus = (time: string) => {
-        // Todo: Check availability against DB via Server Action
-        // For now, assume available or rely on create failure
+        const busy = busySlots.find(s => s.time === time);
+        if (busy) return { status: "busy", name: busy.name };
         return { status: "available", name: null };
     };
 

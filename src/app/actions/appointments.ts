@@ -147,3 +147,34 @@ export async function updateAppointmentStatus(id: string, status: string) {
         return { success: false, error: "Failed to update status" };
     }
 }
+
+export async function checkAvailability(date: string) {
+    try {
+        const startOfDay = new Date(`${date}T00:00:00`);
+        const endOfDay = new Date(`${date}T23:59:59`);
+
+        const bookedSessions = await prisma.session.findMany({
+            where: {
+                date: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                },
+                status: { not: 'Canceled' }
+            },
+            include: {
+                client: { select: { name: true } }
+            }
+        });
+
+        // Map to { time: "HH:MM", name: "Client Name" }
+        const busySlots = bookedSessions.map((s: any) => ({
+            time: s.date.toISOString().split('T')[1].substring(0, 5),
+            name: s.client.name
+        }));
+
+        return { success: true, data: busySlots };
+    } catch (error) {
+        console.error("Failed to check availability:", error);
+        return { success: false, error: "Failed to check availability" };
+    }
+}
