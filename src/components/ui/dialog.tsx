@@ -99,6 +99,20 @@ export function DialogHeader({
     );
 }
 
+export function DialogFooter({
+    children,
+    className,
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return (
+        <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4", className)}>
+            {children}
+        </div>
+    );
+}
+
 export function DialogTitle({
     children,
     className,
