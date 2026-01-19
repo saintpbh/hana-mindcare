@@ -22,6 +22,9 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
     const [isConclusionModalOpen, setIsConclusionModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [scheduleClient, setScheduleClient] = useState<any>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const triggerRefresh = () => setRefreshKey(prev => prev + 1);
 
     return (
         <div className="flex min-h-screen bg-[var(--color-warm-white)] flex-col lg:flex-row">
@@ -34,11 +37,15 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                         {/* Session Conclusion Modal Integration */}
                         <SessionConclusionModal
                             isOpen={isConclusionModalOpen}
-                            onClose={() => setIsConclusionModalOpen(false)}
+                            onClose={() => {
+                                setIsConclusionModalOpen(false);
+                                triggerRefresh();
+                            }}
                             clientName="박지은"
                             onWriteReport={() => {
                                 alert("Navigating to Report Page...");
                                 setIsConclusionModalOpen(false);
+                                triggerRefresh();
                             }}
                             onScheduleNext={() => {
                                 setIsConclusionModalOpen(false);
@@ -48,10 +55,12 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                                     setScheduleClient(targetClient);
                                     setIsScheduleModalOpen(true);
                                 }
+                                triggerRefresh();
                             }}
                             onDownloadTranscript={() => {
                                 alert("Downloading Transcript...");
                                 setIsConclusionModalOpen(false);
+                                triggerRefresh();
                             }}
                         />
 
@@ -59,7 +68,10 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                         {isScheduleModalOpen && (
                             <ScheduleModal
                                 isOpen={isScheduleModalOpen}
-                                onClose={() => setIsScheduleModalOpen(false)}
+                                onClose={() => {
+                                    setIsScheduleModalOpen(false);
+                                    triggerRefresh();
+                                }}
                                 client={scheduleClient}
                             />
                         )}
@@ -95,7 +107,17 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                                 {/* Counselor View: Next Session Highlight */}
                                 {(role === 'counselor' || role === 'solo') && (
                                     <div className="animate-in fade-in slide-in-from-left-4">
-                                        <NextSessionCard />
+                                        <NextSessionCard
+                                            refreshKey={refreshKey}
+                                            onStatusChange={triggerRefresh}
+                                            onReschedule={(session) => {
+                                                const targetClient = clients.find(c => c.id === session.clientId);
+                                                if (targetClient) {
+                                                    setScheduleClient(targetClient);
+                                                    setIsScheduleModalOpen(true);
+                                                }
+                                            }}
+                                        />
                                     </div>
                                 )}
 
@@ -140,7 +162,7 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                             {/* Right Column (Calendar/Schedule) */}
                             <div className={cn("transition-all min-w-0", role === 'admin' ? "lg:col-span-7 order-1" : "lg:col-span-4 order-2")}>
                                 <section className="h-full sticky top-10">
-                                    <SmartCalendar className="h-full" />
+                                    <SmartCalendar className="h-full" refreshKey={refreshKey} />
                                 </section>
                             </div>
 

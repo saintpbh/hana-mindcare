@@ -17,11 +17,13 @@ type Client = any;
 export function SmartCalendar({
     compact = false,
     className = "",
-    onEventClick
+    onEventClick,
+    refreshKey = 0
 }: {
     compact?: boolean;
     className?: string;
     onEventClick?: (event: CalendarEvent) => void;
+    refreshKey?: number;
 }) {
     const router = useRouter();
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -45,7 +47,7 @@ export function SmartCalendar({
 
     useEffect(() => {
         fetchEvents();
-    }, [currentMonth]);
+    }, [currentMonth, refreshKey]);
 
     const fetchEvents = async () => {
         setLoading(true);

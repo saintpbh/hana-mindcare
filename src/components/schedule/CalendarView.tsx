@@ -294,24 +294,14 @@ export function CalendarView({
                         </div>
 
                         {/* Body: Client Info */}
-                        <div className="flex-1 min-h-0 flex flex-col gap-0.5">
-                            <div className="font-bold leading-tight truncate">{apt.title}</div>
-                            <div className="flex flex-wrap gap-1 items-center mt-0.5">
-                                <span className="text-[9px] uppercase tracking-wide opacity-80 border border-current px-1 rounded-sm">{apt.type}</span>
-                                <div className="flex gap-1 opacity-60">
-                                    {apt.id % 2 === 0 ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
-                                </div>
+                        <div className="flex-1 min-h-0 flex items-center justify-center text-center px-1">
+                            <div className="font-extrabold text-sm leading-tight text-[var(--color-midnight-navy)] truncate w-full">
+                                {apt.title} <span className="text-[10px] font-medium opacity-60 ml-1">@{apt.location || "양재"}</span>
                             </div>
                         </div>
 
-                        {/* Footer: Quick Actions (Visible on Hover/Selection) */}
-                        {/* Only show if height allows */}
-                        {apt.duration >= 1 && (
-                            <div className="mt-1 pt-1 border-t border-black/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-[9px] font-medium opacity-60">예약변경</span>
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="문자 발송됨" />
-                            </div>
-                        )}
+                        {/* Footer - Spacer or Minimal Info */}
+                        <div className="h-2" />
                     </>
                 )}
 

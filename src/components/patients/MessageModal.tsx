@@ -5,6 +5,7 @@ import { X, Send, MessageSquare, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 type Client = any;
+import { sendMessage } from "@/app/actions/messages";
 import { sendSMS } from "@/services/smsService";
 
 interface MessageModalProps {
@@ -42,14 +43,21 @@ export function MessageModal({ isOpen, onClose, clients = [] }: MessageModalProp
             // Send to each client
             for (const client of clients) {
                 const finalMessage = getFullMessage(message, client);
-                const response = await sendSMS({
+
+                // 1. Send SMS (External Service)
+                const smsResponse = await sendSMS({
                     to: client.contact,
                     body: finalMessage,
                     type: finalMessage.length > 80 ? "LMS" : "SMS"
                 });
 
-                if (response.success) successCount++;
-                else failCount++;
+                if (smsResponse.success) {
+                    // 2. Save to DB Communication History
+                    await sendMessage(client.id, finalMessage, "상담사");
+                    successCount++;
+                } else {
+                    failCount++;
+                }
             }
 
             if (failCount === 0) {

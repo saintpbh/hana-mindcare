@@ -36,6 +36,7 @@ model Client {
   
   moods             Mood[]
   prescriptions     Prescription[]
+  messages          Message[]
 }
 
 model Mood {
@@ -45,6 +46,16 @@ model Mood {
   score     Int      // 1: Bad, 2: Neutral, 3: Good
   note      String?
   createdAt DateTime @default(now())
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  senderName  String   // e.g., "Dr. Hana", "Counselor"
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
 
 model Prescription {
