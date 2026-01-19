@@ -20,6 +20,9 @@ const TABS = [
 import { MapPin as MapPinIcon, Plus, Trash2, Video, Users } from "lucide-react";
 import { getLocations, addLocation, deleteLocation } from "@/app/actions/locations";
 import { saveSetting, getSetting } from "@/app/actions/settings";
+import { useBranding } from "@/contexts/BrandingContext";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState("account");
@@ -27,9 +30,14 @@ export default function SettingsPage() {
     return (
         <div className="min-h-screen bg-[var(--color-warm-white)] p-8 overflow-auto">
             <div className="max-w-5xl mx-auto">
-                <header className="mb-8">
-                    <h1 className="text-2xl font-serif text-[var(--color-midnight-navy)]">설정 (Settings)</h1>
-                    <p className="text-sm text-[var(--color-midnight-navy)]/60">앱 환경설정 및 계정 정보를 관리합니다.</p>
+                <header className="mb-8 flex items-center gap-4">
+                    <Link href="/" className="p-2 hover:bg-[var(--color-midnight-navy)]/5 rounded-full transition-colors text-[var(--color-midnight-navy)]">
+                        <ArrowLeft className="w-5 h-5" />
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-serif text-[var(--color-midnight-navy)]">설정 (Settings)</h1>
+                        <p className="text-sm text-[var(--color-midnight-navy)]/60">앱 환경설정 및 계정 정보를 관리합니다.</p>
+                    </div>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -316,11 +324,77 @@ function NotificationSettings() {
 }
 
 function DisplaySettings() {
+    const { title, logoStartColor, logoEndColor, updateBranding } = useBranding();
+    const [localTitle, setLocalTitle] = useState(title);
+    const [localStart, setLocalStart] = useState(logoStartColor);
+    const [localEnd, setLocalEnd] = useState(logoEndColor);
+
+    const handleSave = async () => {
+        await updateBranding({
+            title: localTitle,
+            logoStartColor: localStart,
+            logoEndColor: localEnd
+        });
+        alert("브랜드 설정이 저장되었습니다.");
+    };
+
     return (
         <div className="space-y-8">
             <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">화면 설정</h3>
 
             <div className="space-y-8">
+                {/* Branding Settings */}
+                <div className="space-y-6 pb-8 border-b border-[var(--color-midnight-navy)]/5">
+                    <h4 className="text-sm font-bold text-[var(--color-midnight-navy)] mb-4">브랜드 설정</h4>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">서비스 이름 (App Name)</label>
+                        <input
+                            type="text"
+                            value={localTitle}
+                            onChange={(e) => setLocalTitle(e.target.value)}
+                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">로고 시작 색상 (Tailwind Class)</label>
+                            <input
+                                type="text"
+                                value={localStart}
+                                onChange={(e) => setLocalStart(e.target.value)}
+                                placeholder="from-blue-500"
+                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">로고 끝 색상 (Tailwind Class)</label>
+                            <input
+                                type="text"
+                                value={localEnd}
+                                onChange={(e) => setLocalEnd(e.target.value)}
+                                placeholder="to-cyan-400"
+                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 p-4 bg-[var(--color-midnight-navy)]/5 rounded-xl">
+                        <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br", localStart, localEnd)} />
+                        <span className="font-serif text-xl tracking-wide text-[var(--color-midnight-navy)]">{localTitle}</span>
+                        <span className="text-xs text-gray-500 ml-auto">미리보기</span>
+                    </div>
+
+                    <button
+                        onClick={handleSave}
+                        className="bg-[var(--color-midnight-navy)] text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors"
+                    >
+                        브랜드 설정 저장
+                    </button>
+                </div>
+
+
                 <div>
                     <label className="block text-sm font-medium text-[var(--color-midnight-navy)] mb-3">테마 설정 (Theme)</label>
                     <div className="grid grid-cols-3 gap-4">

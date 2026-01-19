@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Calendar, Users, Settings, BookOpen, MessageSquare, LogOut, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useBranding } from "@/contexts/BrandingContext";
 
 const NAV_ITEMS = [
     { icon: LayoutGrid, label: "대시보드", href: "/" },
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const { title, logoStartColor, logoEndColor } = useBranding();
 
     const isHome = pathname === "/";
 
@@ -27,9 +29,9 @@ export function Sidebar() {
                 href="/"
                 className="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/10 hover:bg-white/5 transition-colors group cursor-pointer"
             >
-                <div className="w-8 h-8 bg-gradient-to-br from-[var(--color-champagne-gold)] to-amber-600 rounded-lg shrink-0 group-hover:scale-105 transition-transform" />
-                <span className="hidden lg:block ml-3 font-serif text-xl tracking-wide text-[var(--color-warm-white)]">
-                    Serene Care
+                <div className={cn("w-8 h-8 rounded-lg shrink-0 group-hover:scale-105 transition-transform bg-gradient-to-br", logoStartColor, logoEndColor)} />
+                <span className="hidden lg:block ml-3 font-serif text-xl tracking-wide text-[var(--color-warm-white)] truncate">
+                    {title}
                 </span>
             </Link>
 
