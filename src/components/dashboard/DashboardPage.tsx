@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { BarChart, Users, CalendarCheck, AlertTriangle } from "lucide-react";
 
 import { SessionConclusionModal } from "@/components/session/SessionConclusionModal";
+import { ScheduleModal } from "@/components/patients/ScheduleModal";
 import { useState } from "react";
 
 import { IntakeQueueWidget } from "@/components/dashboard/IntakeQueueWidget";
@@ -19,6 +20,8 @@ import { NextSessionCard } from "@/components/dashboard/NextSessionCard";
 export function DashboardPage({ data, recentNotes, clients }: { data: any, recentNotes: any[], clients: any[] }) {
     const { role } = useUserRole();
     const [isConclusionModalOpen, setIsConclusionModalOpen] = useState(false);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [scheduleClient, setScheduleClient] = useState<any>(null);
 
     return (
         <div className="flex min-h-screen bg-[var(--color-warm-white)] flex-col lg:flex-row">
@@ -38,13 +41,28 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                                 setIsConclusionModalOpen(false);
                             }}
                             onScheduleNext={() => {
-                                window.location.href = "/schedule?new=true&client=박지은";
+                                setIsConclusionModalOpen(false);
+                                // Demo: Find client named "박지은" or fallback to first
+                                const targetClient = clients.find(c => c.name === "박지은") || clients[0];
+                                if (targetClient) {
+                                    setScheduleClient(targetClient);
+                                    setIsScheduleModalOpen(true);
+                                }
                             }}
                             onDownloadTranscript={() => {
                                 alert("Downloading Transcript...");
                                 setIsConclusionModalOpen(false);
                             }}
                         />
+
+                        {/* Schedule Modal */}
+                        {isScheduleModalOpen && (
+                            <ScheduleModal
+                                isOpen={isScheduleModalOpen}
+                                onClose={() => setIsScheduleModalOpen(false)}
+                                client={scheduleClient}
+                            />
+                        )}
 
                         {/* Admin View: Stat Cards Row */}
                         {role === 'admin' && (
