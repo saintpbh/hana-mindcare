@@ -15,9 +15,9 @@ interface MessageModalProps {
 }
 
 const TEMPLATES = [
+    { label: "포털 초대", text: "안녕하세요, 하나 마인드케어입니다. 내담자님을 위한 맞춤형 심리 케어 포털 'Hana Companion'이 준비되었습니다. 아래 링크를 통해 오늘의 기분과 변화를 기록해보세요." },
     { label: "예약 리마인드", text: "상담 예약이 내일 예정되어 있습니다. 시간 맞춰 방문 부탁드립니다." },
     { label: "상담 후 안부", text: "오늘 상담은 어떠셨나요? 편안한 저녁 되시길 바랍니다." },
-    { label: "일정 변경 안내", text: "안녕하세요, 하나 마인드케어입니다. 요청하신 대로 일정이 변경되었습니다." },
     { label: "과제 확인", text: "이번 주 과제는 잘 진행되고 계신가요? 어려움이 있으시면 언제든 말씀해주세요." },
 ];
 
@@ -28,7 +28,7 @@ export function MessageModal({ isOpen, onClose, clients = [] }: MessageModalProp
 
     const getFullMessage = (baseMessage: string, client: any) => {
         if (!includeMobileLink) return baseMessage;
-        const link = `${window.location.origin}/mobile/${client.id}`;
+        const link = `${window.location.origin}/mobile/${client.portalToken || client.id}`;
         return `${baseMessage}\n\n개인 페이지: ${link}`;
     };
 

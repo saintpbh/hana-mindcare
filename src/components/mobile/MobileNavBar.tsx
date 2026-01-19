@@ -1,9 +1,9 @@
 "use client";
 
-import { Home, MessageSquare, BookOpen, User } from "lucide-react";
+import { Home, MessageSquare, BookOpen, User, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Tab = "home" | "messages" | "library" | "profile";
+type Tab = "home" | "insights" | "library" | "messages" | "profile";
 
 interface MobileNavBarProps {
     activeTab: Tab;
@@ -13,9 +13,10 @@ interface MobileNavBarProps {
 export function MobileNavBar({ activeTab, onTabChange }: MobileNavBarProps) {
     const tabs: { id: Tab; label: string; icon: any }[] = [
         { id: "home", label: "홈", icon: Home },
-        { id: "messages", label: "메시지", icon: MessageSquare },
+        { id: "insights", label: "변화", icon: TrendingUp },
         { id: "library", label: "라이브러리", icon: BookOpen },
-        { id: "profile", label: "프로필", icon: User },
+        { id: "messages", label: "메시지", icon: MessageSquare },
+        { id: "profile", label: "기타", icon: User },
     ];
 
     return (

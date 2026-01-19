@@ -7,6 +7,7 @@ export async function createPrescription(data: {
     clientId: string,
     title: string,
     type: string,
+    category?: string,
     description?: string,
     contentUrl?: string
 }) {
@@ -15,6 +16,7 @@ export async function createPrescription(data: {
             data
         });
         revalidatePath(`/patients/${data.clientId}`);
+        revalidatePath(`/mobile/${data.clientId}`);
         return { success: true, data: prescription };
     } catch (error) {
         console.error("Failed to create prescription:", error);
@@ -32,5 +34,19 @@ export async function getClientPrescriptions(clientId: string) {
     } catch (error) {
         console.error("Failed to fetch prescriptions:", error);
         return { success: false, error: "Failed to fetch prescriptions" };
+    }
+}
+
+export async function togglePrescriptionCompletion(id: string, isCompleted: boolean) {
+    try {
+        const prescription = await prisma.prescription.update({
+            where: { id },
+            data: { isCompleted }
+        });
+        revalidatePath(`/mobile/${prescription.clientId}`);
+        return { success: true, data: prescription };
+    } catch (error) {
+        console.error("Failed to toggle prescription completion:", error);
+        return { success: false, error: "Failed to toggle prescription completion" };
     }
 }

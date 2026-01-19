@@ -30,42 +30,53 @@ export async function getDashboardData() {
             orderBy: { sessionTime: 'asc' }
         });
 
-        // 3. Recent Signals (Aggregated from Sessions and Client updates)
+        // 3. Recent Signals (Aggregated from Sessions, Moods, and Homework)
         const recentSessions = await prisma.session.findMany({
             take: 3,
             orderBy: { date: 'desc' },
             include: { client: true }
         });
 
-        const recentClientUpdates = await prisma.client.findMany({
+        const recentMoods = await prisma.mood.findMany({
             take: 2,
-            orderBy: { updatedAt: 'desc' },
-            where: {
-                NOT: {
-                    sessions: { some: { date: { gte: today } } } // Avoid dupes if session update caused client update
-                }
-            }
+            orderBy: { createdAt: 'desc' },
+            include: { client: true }
+        });
+
+        const recentHomework = await prisma.prescription.findMany({
+            where: { isCompleted: true, type: 'homework' },
+            take: 2,
+            orderBy: { createdAt: 'desc' },
+            include: { client: true }
         });
 
         // specific type mapping for UI
         const signals = [
-            ...recentSessions.map(s => ({
+            ...recentSessions.map((s: any) => ({
                 id: s.clientId,
                 type: 'log',
                 user: s.client.name,
-                content: `상담 노트 생성: ${s.title} - ${s.sentiment}`,
+                content: `상담 노트 생성: ${s.title}`,
                 time: new Date(s.date).toLocaleDateString(),
                 rawDate: s.date
             })),
-            ...recentClientUpdates.map(c => ({
-                id: c.id,
-                type: 'message', // Simulating a message/update
-                user: c.name,
-                content: `상태 업데이트: ${c.status === 'crisis' ? '위기 상태 감지' : '특이사항 기록됨'}`,
-                time: new Date(c.updatedAt).toLocaleDateString(),
-                rawDate: c.updatedAt
+            ...recentMoods.map((m: any) => ({
+                id: m.clientId,
+                type: 'mood',
+                user: m.client.name,
+                content: `기분 기록: ${m.score === 3 ? '좋음' : m.score === 1 ? '힘듦' : '평범'} - "${m.note || ''}"`,
+                time: new Date(m.createdAt).toLocaleDateString(),
+                rawDate: m.createdAt
+            })),
+            ...recentHomework.map((h: any) => ({
+                id: h.clientId,
+                type: 'homework',
+                user: h.client.name,
+                content: `과제 완료: ${h.title}`,
+                time: new Date(h.createdAt).toLocaleDateString(),
+                rawDate: h.createdAt
             }))
-        ].sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()).slice(0, 4);
+        ].sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()).slice(0, 5);
 
         return {
             briefing: briefingClients,

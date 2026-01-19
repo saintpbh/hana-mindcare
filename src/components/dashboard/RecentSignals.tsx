@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { MessageSquare, Calendar, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { MessageSquare, Calendar, FileText, AlertCircle, CheckCircle2, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Signal {
@@ -23,6 +23,8 @@ export function RecentSignals({ clients: signals }: RecentSignalsProps) {
             case 'log': return FileText;
             case 'reschedule': return Calendar;
             case 'message': return MessageSquare;
+            case 'mood': return Heart;
+            case 'homework': return CheckCircle2;
             default: return CheckCircle2;
         }
     };
@@ -32,6 +34,8 @@ export function RecentSignals({ clients: signals }: RecentSignalsProps) {
             case 'log': return "text-blue-500 bg-blue-50";
             case 'reschedule': return "text-amber-500 bg-amber-50";
             case 'message': return "text-purple-500 bg-purple-50";
+            case 'mood': return "text-rose-500 bg-rose-50";
+            case 'homework': return "text-emerald-500 bg-emerald-50";
             default: return "text-emerald-500 bg-emerald-50";
         }
     };

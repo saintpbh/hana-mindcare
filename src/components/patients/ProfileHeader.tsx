@@ -1,5 +1,6 @@
 import { Shield, Sparkles, MessageCircle, Calendar, Send, Edit3, MessageSquare } from "lucide-react";
-import { type Client } from "@prisma/client";
+// import { type Client } from "@prisma/client";
+type Client = any;
 import { cn } from "@/lib/utils";
 
 interface ProfileHeaderProps {
@@ -54,10 +55,19 @@ export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule,
                                 </span>
                             )}
                         </div>
-                        <div className="flex gap-4 text-sm text-[var(--color-midnight-navy)]/60">
+                        <div className="flex items-center gap-4 text-sm text-[var(--color-midnight-navy)]/60">
                             <span>{client.gender === "Female" ? "여성" : "남성"}, {client.age}세</span>
                             <span>•</span>
                             <span>{client.condition}</span>
+                            {!isTerminated && (client as any).isPortalActive && (
+                                <>
+                                    <span>•</span>
+                                    <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Hana Companion 활성
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
 

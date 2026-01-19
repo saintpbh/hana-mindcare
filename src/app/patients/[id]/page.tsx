@@ -9,6 +9,7 @@ import { PrescriptionModal } from "@/components/library/PrescriptionModal";
 import { EditClientModal } from "@/components/patients/EditClientModal";
 import { MessageModal } from "@/components/patients/MessageModal";
 import { ScheduleModal } from "@/components/patients/ScheduleModal";
+import { MobileAccessControl } from "@/components/patients/MobileAccessControl";
 import { getClientWithHistory, updateClient, terminateClient, deleteQuickNote, restoreQuickNote } from "@/app/actions/clients";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -163,6 +164,11 @@ export default function PatientPage() {
                                 </div>
                             </div>
                         </div>
+
+                        <MobileAccessControl
+                            client={client}
+                            onMessageClick={() => setIsMessageOpen(true)}
+                        />
                     </div>
 
                     {/* Right: Session History & Notes */}

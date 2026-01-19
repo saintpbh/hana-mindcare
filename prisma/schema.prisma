@@ -25,6 +25,11 @@ model Client {
   notes             String
   contact           String
   
+  // Portal Management
+  isPortalActive    Boolean  @default(true)
+  portalToken       String?   @unique @default(uuid())
+  lastPortalAccessAt DateTime?
+  
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -63,9 +68,11 @@ model Prescription {
   clientId    String
   client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   title       String
-  type        String   // 'video', 'article', 'audio'
+  type        String   // 'video', 'article', 'audio', 'homework'
+  category    String?  // 'Homework', 'Reading', 'Video', etc.
   description String?
   contentUrl  String?
+  isCompleted Boolean  @default(false)
   createdAt   DateTime @default(now())
 }
 
