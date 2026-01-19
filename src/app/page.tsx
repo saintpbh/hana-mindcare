@@ -2,6 +2,9 @@ import { getClients, getRecentQuickNotes } from "@/app/actions/clients";
 import { getDashboardData } from "@/app/actions/dashboard";
 import { DashboardPage } from "@/components/dashboard/DashboardPage";
 
+
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const [data, notesResult, clientsResult] = await Promise.all([
     getDashboardData(),

@@ -3,6 +3,9 @@ import { ArrowLeft, FileText, CheckCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+
+export const dynamic = 'force-dynamic';
+
 export default async function LogsPage() {
     const result = await getCounselingLogs();
     const logs = result.success ? result.data || [] : [];
