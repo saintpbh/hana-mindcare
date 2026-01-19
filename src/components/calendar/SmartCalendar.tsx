@@ -51,7 +51,12 @@ export function SmartCalendar({
         setLoading(true);
         const res = await getMonthlySchedule(currentMonth.getFullYear(), currentMonth.getMonth() + 1);
         if (res.success && res.data) {
-            setEvents(res.data);
+            // Fix: Parse ID-serialized date strings back to Date objects
+            const parsedEvents = res.data.map((event: any) => ({
+                ...event,
+                date: new Date(event.date)
+            }));
+            setEvents(parsedEvents);
         }
         setLoading(false);
     };

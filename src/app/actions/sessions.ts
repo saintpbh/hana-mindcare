@@ -120,6 +120,7 @@ export async function getCounselingLogs() {
 
 export async function createSession(data: {
     clientId: string;
+    counselorId?: string;
     title: string;
     summary: string;
     sentiment: string;
@@ -127,11 +128,16 @@ export async function createSession(data: {
     transcript: string;
     notes: string;
     date: Date;
+    status?: string;
+    type?: string;
+    duration?: number;
+    location?: string;
 }) {
     try {
         const session = await prisma.session.create({
             data: {
                 clientId: data.clientId,
+                counselorId: data.counselorId,
                 title: data.title,
                 summary: data.summary,
                 sentiment: data.sentiment,
@@ -139,6 +145,11 @@ export async function createSession(data: {
                 transcript: data.transcript,
                 notes: data.notes,
                 date: data.date,
+                status: data.status ?? "Scheduled",
+                type: data.type ?? "상담",
+                duration: data.duration ?? 50,
+                location: data.location,
+                meetingLink: data.location === "Zoom (화상)" ? `https://zoom.us/j/${Math.random().toString().slice(2, 11)}` : undefined,
             }
         });
 

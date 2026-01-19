@@ -28,6 +28,20 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
     const [status, setStatus] = useState<"stable" | "attention" | "crisis">("attention");
     const [notes, setNotes] = useState(initialData?.notes || "");
 
+    // Counselor State
+    const [counselors, setCounselors] = useState<any[]>([]);
+    const [counselorId, setCounselorId] = useState("");
+
+    useState(() => {
+        if (typeof window !== "undefined") {
+            import("@/app/actions/counselors").then(({ getCounselors }) => {
+                getCounselors().then(res => {
+                    if (res.success) setCounselors(res.data || []);
+                });
+            });
+        }
+    });
+
     // Reset state when opening with new initialData
     // (In a real app, use useEffect to sync initialData changes if needed, but here simple init is okay as modal remounts or we can add useEffect if needed)
 
@@ -52,6 +66,7 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
             tags: [],
             notes: notes || "상담 초기 단계입니다.",
             terminatedAt: null,
+            counselor: counselorId ? { connect: { id: counselorId } } : undefined,
             // sessionType is optional in CreateInput
         };
 
@@ -170,6 +185,20 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
                                 className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
                                 placeholder="예: 우울증, 불안장애, 직무 스트레스"
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">담당 상담사 (Counselor)</label>
+                            <select
+                                value={counselorId}
+                                onChange={(e) => setCounselorId(e.target.value)}
+                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
+                            >
+                                <option value="">상담사 미지정</option>
+                                {counselors.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.name} {c.nickname ? `(${c.nickname})` : ''}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="space-y-2">

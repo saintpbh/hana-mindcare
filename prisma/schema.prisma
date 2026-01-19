@@ -30,12 +30,36 @@ model Client {
 
   sessions          Session[]
   quickNotes        QuickNote[]
+  
+  counselorId       String?
+  counselor         Counselor? @relation(fields: [counselorId], references: [id])
+}
+
+model Counselor {
+  id                String   @id @default(uuid())
+  name              String
+  nickname          String?
+  birthYear         String?
+  gender            String?
+  qualifications    String[] // e.g., ["Clinical Psychologist", "Art Therapist"]
+  specialties       String[] // e.g., ["Anxiety", "Trauma"]
+  residence         String?  // For distance check
+  phoneNumber       String?
+  
+  clients           Client[]
+  sessions          Session[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model Session {
   id          String   @id @default(uuid())
   clientId    String
   client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  counselorId String?
+  counselor   Counselor? @relation(fields: [counselorId], references: [id])
   
   date        DateTime
   title       String   // e.g., "Initial Consultation", "CBT Session 1"
@@ -55,6 +79,7 @@ model Session {
   counselingLog CounselingLog?
   
   meetingLink String?  // Zoom Meeting URL
+  location    String?  // 'Zoom', 'Seoul Center', etc.
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

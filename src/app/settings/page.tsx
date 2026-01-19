@@ -12,11 +12,12 @@ const TABS = [
     { id: "display", label: "화면 (Display)", icon: Monitor },
     { id: "general", label: "일반 (General)", icon: Globe },
     { id: "locations", label: "상담 장소 (Locations)", icon: MapPinIcon },
+    { id: "counselors", label: "상담사 관리 (Counselors)", icon: Users },
     { id: "ai", label: "AI 설정 (Intelligence)", icon: Sparkles },
     { id: "zoom", label: "Zoom 연동 (Zoom)", icon: Video },
 ];
 
-import { MapPin as MapPinIcon, Plus, Trash2, Video } from "lucide-react";
+import { MapPin as MapPinIcon, Plus, Trash2, Video, Users } from "lucide-react";
 import { getLocations, addLocation, deleteLocation } from "@/app/actions/locations";
 import { saveSetting, getSetting } from "@/app/actions/settings";
 
@@ -65,6 +66,7 @@ export default function SettingsPage() {
                             {activeTab === "display" && <DisplaySettings />}
                             {activeTab === "general" && <GeneralSettings />}
                             {activeTab === "locations" && <LocationManagement />}
+                            {activeTab === "counselors" && <CounselorManagement />}
                             {activeTab === "ai" && <AISettings />}
                             {activeTab === "zoom" && <ZoomSettings />}
                         </motion.div>
@@ -603,6 +605,207 @@ function ToggleItem({ label, desc, checked, onChange }: { label: string, desc: s
                     checked ? "translate-x-6" : "translate-x-0"
                 )} />
             </button>
+        </div>
+    );
+}
+
+function CounselorManagement() {
+    const [counselors, setCounselors] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [currentCounselor, setCurrentCounselor] = useState<any>(null);
+
+    // Form State
+    const [formData, setFormData] = useState({
+        name: "",
+        nickname: "",
+        birthYear: "",
+        gender: "여성",
+        qualifications: "",
+        specialties: "",
+        residence: "",
+        phoneNumber: ""
+    });
+
+    useEffect(() => {
+        fetchCounselors();
+    }, []);
+
+    const fetchCounselors = async () => {
+        const { getCounselors } = await import("@/app/actions/counselors");
+        const res = await getCounselors();
+        if (res.success) {
+            setCounselors(res.data || []);
+        }
+        setIsLoading(false);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const { createCounselor, updateCounselor } = await import("@/app/actions/counselors");
+
+        const payload = {
+            ...formData,
+            qualifications: formData.qualifications.split(",").map(s => s.trim()).filter(Boolean),
+            specialties: formData.specialties.split(",").map(s => s.trim()).filter(Boolean),
+        };
+
+        let res;
+        if (currentCounselor) {
+            res = await updateCounselor(currentCounselor.id, payload);
+        } else {
+            res = await createCounselor(payload);
+        }
+
+        if (res.success) {
+            fetchCounselors();
+            setIsEditing(false);
+            setCurrentCounselor(null);
+            setFormData({
+                name: "",
+                nickname: "",
+                birthYear: "",
+                gender: "여성",
+                qualifications: "",
+                specialties: "",
+                residence: "",
+                phoneNumber: ""
+            });
+        } else {
+            alert(res.error);
+        }
+    };
+
+    const handleEdit = (c: any) => {
+        setCurrentCounselor(c);
+        setFormData({
+            name: c.name,
+            nickname: c.nickname || "",
+            birthYear: c.birthYear || "",
+            gender: c.gender || "여성",
+            qualifications: c.qualifications.join(", "),
+            specialties: c.specialties.join(", "),
+            residence: c.residence || "",
+            phoneNumber: c.phoneNumber || ""
+        });
+        setIsEditing(true);
+    };
+
+    const handleDelete = async (id: string, name: string) => {
+        if (confirm(`'${name}' 상담사를 삭제하시겠습니까?`)) {
+            const { deleteCounselor } = await import("@/app/actions/counselors");
+            const res = await deleteCounselor(id);
+            if (res.success) fetchCounselors();
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-[var(--color-midnight-navy)]">{currentCounselor ? "상담사 정보 수정" : "새 상담사 등록"}</h3>
+                    <button onClick={() => setIsEditing(false)} className="text-sm text-gray-500 hover:underline">취소</button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">이름 (실명)</label>
+                        <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">닉네임 (활동명)</label>
+                        <input value={formData.nickname} onChange={e => setFormData({ ...formData, nickname: e.target.value })} className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">전화번호</label>
+                        <input value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} placeholder="010-0000-0000" className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">생년</label>
+                        <input value={formData.birthYear} onChange={e => setFormData({ ...formData, birthYear: e.target.value })} placeholder="YYYY" className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">성별</label>
+                        <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm">
+                            <option value="여성">여성</option>
+                            <option value="남성">남성</option>
+                        </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">주거지 (시/구)</label>
+                        <input value={formData.residence} onChange={e => setFormData({ ...formData, residence: e.target.value })} placeholder="서울 강남구" className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">자격증 (쉼표로 구분)</label>
+                        <input value={formData.qualifications} onChange={e => setFormData({ ...formData, qualifications: e.target.value })} placeholder="임상심리전문가, 청소년상담사 1급" className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">주력 상담 분야 (쉼표로 구분)</label>
+                        <input value={formData.specialties} onChange={e => setFormData({ ...formData, specialties: e.target.value })} placeholder="우울, 불안, 트라우마" className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm" />
+                    </div>
+
+                    <div className="col-span-2 pt-4">
+                        <button type="submit" className="w-full bg-[var(--color-midnight-navy)] text-white py-3 rounded-xl font-bold hover:bg-[var(--color-midnight-navy)]/90 transition-colors">
+                            {currentCounselor ? "정보 수정 완료" : "상담사 등록하기"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h3 className="text-lg font-bold text-[var(--color-midnight-navy)]">상담사 관리</h3>
+                    <p className="text-sm text-[var(--color-midnight-navy)]/60">센터 소속 상담사를 등록하고 관리합니다.</p>
+                </div>
+                <button
+                    onClick={() => { setIsEditing(true); setCurrentCounselor(null); setFormData({ name: "", nickname: "", birthYear: "", gender: "여성", qualifications: "", specialties: "", residence: "", phoneNumber: "" }); }}
+                    className="bg-[var(--color-midnight-navy)] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 flex items-center gap-2"
+                >
+                    <Plus className="w-4 h-4" /> 상담사 등록
+                </button>
+            </div>
+
+            {isLoading ? (
+                <div className="text-sm text-gray-400">로드 중...</div>
+            ) : counselors.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed">
+                    <p className="text-gray-400">등록된 상담사가 없습니다.</p>
+                </div>
+            ) : (
+                <div className="grid gap-4">
+                    {counselors.map((c: any) => (
+                        <div key={c.id} className="bg-white border border-[var(--color-midnight-navy)]/10 rounded-xl p-5 flex items-center justify-between hover:shadow-md transition-all group">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-[var(--color-midnight-navy)]/5 flex items-center justify-center text-[var(--color-midnight-navy)] font-bold text-lg">
+                                    {c.name[0]}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-[var(--color-midnight-navy)]">{c.name}</span>
+                                        {c.nickname && <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{c.nickname}</span>}
+                                        <span className="text-xs text-gray-400 border-l pl-2 ml-1">{c.phoneNumber}</span>
+                                    </div>
+                                    <div className="text-xs text-[var(--color-midnight-navy)]/60 mt-1">
+                                        {c.qualifications.join(", ")}
+                                    </div>
+                                    <div className="flex gap-2 mt-2">
+                                        <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">내담자 {c._count?.clients || 0}명</span>
+                                        <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">세션 {c._count?.sessions || 0}건</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleEdit(c)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">수정</button>
+                                <button onClick={() => handleDelete(c.id, c.name)} className="p-2 hover:bg-rose-50 rounded-lg text-rose-500">삭제</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

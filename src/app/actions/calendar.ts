@@ -58,23 +58,22 @@ export async function getMonthlySchedule(year: number, month: number) {
                 clientContact: s.client.contact,
                 nextSession: s.date.toISOString().split('T')[0], // derived
                 sessionTime: s.date.toISOString().split('T')[1].substring(0, 5), // HH:MM
-                sessionType: s.type, // Map 'type' to 'sessionType'
-                location: s.client.location, // Use client's default location for now
-                status: s.status.toLowerCase()
+                sessionType: s.type || 'session', // Map 'type' to 'sessionType'
+                location: s.client?.location || s.location || 'Center', // Use available location
+                status: (s.status || 'Scheduled').toLowerCase()
             };
         });
 
-        // Check past sessions too if we want a full calendar history?
-        // User asked for "Schedule Management", implies future planning.
-        // Looking at the screenshot, it shows past history too.
-        // Let's stick to future scheduled items for now to keep it focused on "Management", 
         // but maybe fetch `Session` table for past logs if needed later. 
         // For now, let's just return scheduled items.
 
         return { success: true, data: events };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to fetch monthly schedule:", error);
-        return { success: false, error: 'Failed to fetch schedule' };
+        return {
+            success: false,
+            error: `Fetch Error: ${error?.message || String(error)}`
+        };
     }
 }

@@ -1,39 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IntakeWizard } from "@/components/schedule/IntakeWizard";
-import { CalendarView, type Appointment } from "@/components/schedule/CalendarView";
+import { CalendarView } from "@/components/schedule/CalendarView";
 import { EditAppointmentModal } from "@/components/schedule/EditAppointmentModal";
 import { ScheduleDetailPanel } from "@/components/schedule/ScheduleDetailPanel";
 import { SessionListPanel } from "@/components/schedule/SessionListPanel";
 import { DayViewSidebar } from "@/components/schedule/DayViewSidebar";
 
 import { getClients } from "@/app/actions/clients";
-import { getAppointments } from "@/app/actions/appointments";
-import { ScheduleModal } from "@/components/patients/ScheduleModal";
-import { AnimatePresence, motion } from "framer-motion";
-
-type Client = any; // TODO: Use Prisma Client type
+type Client = any;
+import { useEffect } from "react";
 
 export default function SchedulePage() {
     const [isIntakeOpen, setIsIntakeOpen] = useState(false);
-    const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [clients, setClients] = useState<Client[]>([]); // Store raw clients for modal
+    const [editingAppointment, setEditingAppointment] = useState<any>(null);
+    const [appointments, setAppointments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentView, setCurrentView] = useState<"day" | "week" | "month">("week");
-    const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | number | null>(null);
+    const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
     const [currentDate, setCurrentDate] = useState(new Date()); // Default to Today (System Time)
 
-    // Reschedule State
-    const [rescheduleTarget, setRescheduleTarget] = useState<{ client: Client, newDate: Date } | null>(null);
-
-    // Smart Selection Logic
+    // Smart Selection Logic: explicit select -> current time (mocked for demo) -> next upcoming
     const selectedAppointment = appointments.find(a => a.id === selectedAppointmentId);
 
+    // Fallback logic for demo purposes
+    const defaultAppointment = !selectedAppointmentId
+        ? appointments.find(a => a.time >= 10 && a.day === 0)
+        : null;
+
+    // Helper to format header date
     const formatHeaderDate = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth() + 1;
@@ -41,8 +40,9 @@ export default function SchedulePage() {
 
         if (currentView === "day") return `${year}년 ${month}월 ${date}일`;
         if (currentView === "week") {
-            const day = currentDate.getDay();
-            const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1);
+            // Calculate week range
+            const day = currentDate.getDay(); // 0=Sun
+            const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
             const monday = new Date(currentDate);
             monday.setDate(diff);
             const friday = new Date(monday);
@@ -69,69 +69,61 @@ export default function SchedulePage() {
     };
 
     useEffect(() => {
-        const fetchAppointmentsData = async () => {
-            setIsLoading(true);
-            // Calculate range based on view/date (simplified: fetch +/- 1 month for now)
-            const startWindow = new Date(currentDate);
-            startWindow.setMonth(startWindow.getMonth() - 1);
-            const endWindow = new Date(currentDate);
-            endWindow.setMonth(endWindow.getMonth() + 1);
-
-            const result = await getAppointments(startWindow, endWindow);
+        const fetchAppointments = async () => {
+            const result = await getClients();
             if (result.success && result.data) {
-                // Ensure IDs match Appointment interface (string | number)
-                setAppointments(result.data.map((apt: any) => ({
-                    ...apt,
-                    color: apt.status === 'Scheduled' ? "bg-teal-100 text-teal-900 border-teal-200" : undefined,
-                    id: apt.id
-                })));
+                const mappedAppointments = result.data.map((client: Client) => {
+                    // Start time parsing
+                    const timeStr = client.sessionTime || "10:00";
+                    const hour = parseInt(timeStr.split(':')[0], 10);
+
+                    // Date parsing
+                    const sessionDate = new Date(client.nextSession);
+                    const day = sessionDate.getDay() - 1; // 0=Sun, 1=Mon... we want 0=Mon.
+
+                    let color = "bg-teal-100 text-teal-900 border-teal-200"; // Stable/Ongoing
+                    if (client.status === 'crisis') color = "bg-rose-100 text-rose-900 border-rose-200";
+                    if (client.tags.includes('intake')) color = "bg-amber-100 text-amber-900 border-amber-200";
+
+                    return {
+                        id: client.id,
+                        title: client.name,
+                        type: client.tags.includes('intake') ? "Intake" : (client.status === 'crisis' ? "Crisis" : "Ongoing"),
+                        time: hour,
+                        day: day < 0 ? 6 : day, // Handle Sunday
+                        duration: 1,
+                        color,
+                        location: client.location,
+                        rawDate: sessionDate.toISOString().split('T')[0], // Ensure YYYY-MM-DD format
+                        history: client.sessions ? client.sessions.map((s: any) => ({
+                            id: s.id,
+                            date: new Date(s.date),
+                            duration: s.duration,
+                            summary: s.notes, // Assuming 'notes' field for summary
+                            type: 'Counseling'
+                        })) : []
+                    };
+                });
+                setAppointments(mappedAppointments);
             }
-
-            // Also fetch clients for modal
-            const clientsRes = await getClients();
-            if (clientsRes.success) setClients(clientsRes.data || []);
-
             setIsLoading(false);
         };
-        fetchAppointmentsData();
-    }, [currentDate]);
+        fetchAppointments();
+    }, []);
 
-    const handleAddAppointment = async (newApt: any) => {
-        // Logic should move to Modal onSuccess
-        // Refresh list
-        // For now, just re-fetch or rely on useEffect
+    const handleAddAppointment = (newApt: any) => {
+        setAppointments([...appointments, { ...newApt, id: Date.now() }]);
+        // In reality, this should call createClient
     };
 
     const handleUpdateAppointment = (updated: any) => {
-        // Logic should move to Modal onSuccess
+        setAppointments(prev => prev.map(apt => apt.id === updated.id ? updated : apt));
+        // In reality, this should call updateClient
     };
 
-    const handleDeleteAppointment = (id: string | number) => {
+    const handleDeleteAppointment = (id: number) => {
         setAppointments(prev => prev.filter(apt => apt.id !== id));
-    };
-
-    // Smart Reschedule Handler
-    const handleReschedule = (id: string | number, newDate: Date) => {
-        console.log(`Rescheduling appointment ${id} to ${newDate.toISOString()}`);
-
-        const appointment = appointments.find(a => a.id === id);
-        if (appointment && appointment.clientId) {
-            // Robust lookup by ID
-            const client = clients.find(c => c.id === appointment.clientId);
-
-            if (client) {
-                setRescheduleTarget({ client, newDate });
-            } else {
-                console.warn("Client details not found in cache, attempting to construct minimal client.");
-                // Fallback: Construct minimal client if full details missing (or fetch single)
-                // For now, if getClients() worked, this should be fine. 
-                // If failing, might need to fetchClient(clientId) here.
-                console.error("Client not found for rescheduling");
-            }
-        } else {
-            console.error("Appointment or ClientID not found");
-        }
-    };
+    }
 
     return (
         <div className="min-h-screen bg-[var(--color-warm-white)] p-8 overflow-hidden flex flex-col h-screen">
@@ -198,25 +190,23 @@ export default function SchedulePage() {
             </header>
 
             {/* Main Content */}
-            <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0 relative">
-                {/* 1. Sidebar (Day View Only) - Hidden on Mobile unless tailored */}
+            <div className="flex gap-6 flex-1 min-h-0">
+                {/* 1. Sidebar (Day View Only) */}
                 {currentView === "day" && (
-                    <div className="hidden lg:block">
-                        <DayViewSidebar
-                            currentDate={currentDate}
-                            onDateChange={setCurrentDate}
-                            appointments={appointments}
-                            sessions={appointments.filter(a => a.rawDate === currentDate.toISOString().split('T')[0])}
-                        />
-                    </div>
+                    <DayViewSidebar
+                        currentDate={currentDate}
+                        onDateChange={setCurrentDate}
+                        appointments={appointments}
+                        sessions={appointments.filter(a => a.rawDate === currentDate.toISOString().split('T')[0])}
+                    />
                 )}
 
-                {/* 2. Main Calendar Area (Flexible) */}
+                {/* 2. Main Calendar Area (Left, Flexible) */}
                 <div className="flex-1 flex flex-col min-w-0 h-full">
                     <CalendarView
                         appointments={appointments}
                         setAppointments={setAppointments}
-                        onEditAppointment={(id) => setEditingAppointment(appointments.find(a => a.id === id) || null)}
+                        onEditAppointment={(id) => setEditingAppointment(appointments.find(a => a.id === id))}
                         view={currentView}
                         currentDate={currentDate}
                         onDateChange={(date) => {
@@ -224,42 +214,31 @@ export default function SchedulePage() {
                         }}
                         onSelectAppointment={(id) => setSelectedAppointmentId(id)}
                         selectedAppointmentId={selectedAppointmentId}
-                        onReschedule={handleReschedule}
                     />
                 </div>
 
-                {/* 3. Client Detail Panel (Right, Fixed Width on Desktop, Overlay on Mobile) */}
-                <AnimatePresence>
-                    {selectedAppointment && (
-                        <motion.aside
-                            initial={{ x: "100%" }}
-                            animate={{ x: 0 }}
-                            exit={{ x: "100%" }}
-                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="absolute lg:relative inset-0 lg:inset-auto z-20 w-full lg:w-[400px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-white shadow-xl lg:shadow-sm"
-                        >
-                            <div className="h-full flex flex-col">
-                                <div className="lg:hidden p-4 bg-gray-50 border-b flex justify-start">
-                                    <button onClick={() => setSelectedAppointmentId(null)} className="flex items-center text-sm font-bold text-gray-500">
-                                        <ChevronRight className="w-5 h-5" /> 돌아가기
-                                    </button>
-                                </div>
-                                <div className="flex-1 overflow-auto">
-                                    <ScheduleDetailPanel
-                                        appointment={selectedAppointment}
-                                        onClose={() => setSelectedAppointmentId(null)}
-                                        onEdit={(id) => setEditingAppointment(appointments.find(a => a.id === id) || null)}
-                                    />
-                                </div>
-                            </div>
-                        </motion.aside>
-                    )}
-                </AnimatePresence>
+                {/* 3. Client Detail Panel (Center, Fixed Width) */}
+                {selectedAppointment ? (
+                    <aside className="w-[400px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-white shadow-sm z-10 transition-all">
+                        <ScheduleDetailPanel
+                            appointment={selectedAppointment}
+                            onClose={() => setSelectedAppointmentId(null)}
+                            onEdit={(id) => setEditingAppointment(appointments.find(a => a.id === id))}
+                        />
+                    </aside>
+                ) : (
+                    <aside className="w-[400px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-white/50 flex flex-col items-center justify-center text-[var(--color-midnight-navy)]/30 gap-4">
+                        <div className="w-16 h-16 rounded-full bg-[var(--color-midnight-navy)]/5 flex items-center justify-center">
+                            <Plus className="w-8 h-8 opacity-50" />
+                        </div>
+                        <p className="font-medium">일정을 선택하여 상세 정보를 확인하세요</p>
+                    </aside>
+                )}
 
-                {/* 4. Session History Panel (Hidden on Mobile for simplicity or merged into Detail) */}
-                <aside className="hidden xl:block w-[320px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-gray-50/50">
+                {/* 4. Session History Panel (Right, Fixed Width) */}
+                <aside className="w-[320px] shrink-0 h-full border-l border-[var(--color-midnight-navy)]/5 bg-gray-50/50">
                     <SessionListPanel
-                        sessions={(selectedAppointment as any)?.history || []}
+                        sessions={selectedAppointment?.history || []}
                         clientName={selectedAppointment?.title}
                     />
                 </aside>
@@ -279,17 +258,6 @@ export default function SchedulePage() {
                 onDelete={handleDeleteAppointment}
                 appointment={editingAppointment}
             />
-
-            {/* Smart Reschedule Modal */}
-            {rescheduleTarget && (
-                <ScheduleModal
-                    isOpen={true}
-                    onClose={() => setRescheduleTarget(null)}
-                    selectedClient={rescheduleTarget.client}
-                    rescheduleMode={true}
-                    initialDate={rescheduleTarget.newDate}
-                />
-            )}
         </div>
     );
 }

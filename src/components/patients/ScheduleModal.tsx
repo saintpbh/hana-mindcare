@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Check, Calendar as CalendarIcon, Clock, MapPin, Video, Phone, Timer } from "lucide-react";
+import { X, Check, Calendar as CalendarIcon, Clock, MapPin, Video, Phone, Timer, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 // import { type Client } from "@prisma/client";
 type Client = any;
@@ -58,6 +58,23 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     const [isAddingLocation, setIsAddingLocation] = useState(false);
     const [newQuickLocation, setNewQuickLocation] = useState("");
 
+    const [counselors, setCounselors] = useState<any[]>([]);
+    const [selectedCounselorId, setSelectedCounselorId] = useState<string>(activeClient?.counselorId || "");
+
+    useEffect(() => {
+        const loadCounselors = async () => {
+            const { getCounselors } = await import("@/app/actions/counselors");
+            const res = await getCounselors();
+            if (res.success) setCounselors(res.data || []);
+
+            // If client has no assigned counselor, maybe default to first one? No, explicit choice is better.
+            if (!selectedCounselorId && activeClient?.counselorId) {
+                setSelectedCounselorId(activeClient.counselorId);
+            }
+        };
+        loadCounselors();
+    }, [activeClient]);
+
     // SMS State
     const [sendSms, setSendSms] = useState(true);
 
@@ -109,7 +126,9 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
             type: selectedType,
             duration: parseInt(selectedDuration),
             notes: `Location: ${selectedLocation}`, // Store location in notes for now
-            recurring: selectedRecurring
+            recurring: selectedRecurring,
+            counselorId: selectedCounselorId,
+            location: selectedLocation // Pass explicit location field
         });
 
         if (result.success) {
@@ -274,6 +293,22 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
 
                         <section>
                             <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block flex items-center gap-2">
+                                <Users className="w-3 h-3" /> 담당 상담사
+                            </label>
+                            <select
+                                value={selectedCounselorId}
+                                onChange={(e) => setSelectedCounselorId(e.target.value)}
+                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]/50 text-sm font-medium text-[var(--color-midnight-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--color-midnight-navy)]/20"
+                            >
+                                <option value="">상담사 선택 (선택 안함)</option>
+                                {counselors.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.name} {c.nickname ? `(${c.nickname})` : ''}</option>
+                                ))}
+                            </select>
+                        </section>
+
+                        <section>
+                            <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block flex items-center gap-2">
                                 <Timer className="w-3 h-3" /> 상담 시간(분)
                             </label>
                             <div className="flex bg-[var(--color-warm-white)]/50 p-1 rounded-xl border border-[var(--color-midnight-navy)]/10">
@@ -339,10 +374,10 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
                             ))}
                         </div>
                     </section>
-                </div>
+                </div >
 
                 {/* Right Side: Time Picker & Confirm */}
-                <div className="w-full md:w-[420px] bg-[var(--color-warm-white)]/30 p-6 flex flex-col overflow-y-auto">
+                < div className="w-full md:w-[420px] bg-[var(--color-warm-white)]/30 p-6 flex flex-col overflow-y-auto" >
                     <button
                         onClick={onClose}
                         className="self-end p-2 rounded-full hover:bg-black/5 text-gray-400 mb-4"
@@ -388,31 +423,33 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
                     </div>
 
                     {/* Reschedule SMS Preview */}
-                    {rescheduleMode && (
-                        <div className="mb-6 animate-in slide-in-from-bottom-2">
-                            <label className="flex items-center gap-2 mb-2 cursor-pointer group">
-                                <div className={cn("w-5 h-5 rounded-md flex items-center justify-center transition-colors", sendSms ? "bg-[var(--color-midnight-navy)] text-white" : "bg-gray-200 text-transparent")}>
-                                    <Check className="w-3 h-3" />
-                                </div>
-                                <input type="checkbox" checked={sendSms} onChange={(e) => setSendSms(e.target.checked)} className="hidden" />
-                                <span className="text-sm font-bold text-[var(--color-midnight-navy)] group-hover:underline">내담자에게 변경 안내 문자 발송</span>
-                            </label>
-
-                            {sendSms && (
-                                <div className="bg-white p-3 rounded-2xl border border-[var(--color-midnight-navy)]/10 text-xs text-gray-500 flex gap-3 relative">
-                                    <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                                    <div>
-                                        <div className="font-bold text-[var(--color-midnight-navy)] mb-1">[하나 마인드케어] 예약 변경 안내</div>
-                                        {activeClient.name}님, 상담 일정이 아래와 같이 변경되었습니다.<br />
-                                        📅 {selectedDate} {selectedTime} <br />
-                                        📍 {selectedLocation}<br />
-                                        확인 부탁드립니다.
+                    {
+                        rescheduleMode && (
+                            <div className="mb-6 animate-in slide-in-from-bottom-2">
+                                <label className="flex items-center gap-2 mb-2 cursor-pointer group">
+                                    <div className={cn("w-5 h-5 rounded-md flex items-center justify-center transition-colors", sendSms ? "bg-[var(--color-midnight-navy)] text-white" : "bg-gray-200 text-transparent")}>
+                                        <Check className="w-3 h-3" />
                                     </div>
-                                    <div className="absolute top-2 right-3 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">Preview</div>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                    <input type="checkbox" checked={sendSms} onChange={(e) => setSendSms(e.target.checked)} className="hidden" />
+                                    <span className="text-sm font-bold text-[var(--color-midnight-navy)] group-hover:underline">내담자에게 변경 안내 문자 발송</span>
+                                </label>
+
+                                {sendSms && (
+                                    <div className="bg-white p-3 rounded-2xl border border-[var(--color-midnight-navy)]/10 text-xs text-gray-500 flex gap-3 relative">
+                                        <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <div className="font-bold text-[var(--color-midnight-navy)] mb-1">[하나 마인드케어] 예약 변경 안내</div>
+                                            {activeClient.name}님, 상담 일정이 아래와 같이 변경되었습니다.<br />
+                                            📅 {selectedDate} {selectedTime} <br />
+                                            📍 {selectedLocation}<br />
+                                            확인 부탁드립니다.
+                                        </div>
+                                        <div className="absolute top-2 right-3 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">Preview</div>
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    }
 
                     <div className="bg-white rounded-2xl p-4 border border-[var(--color-midnight-navy)]/5 shadow-sm mb-4">
                         <div className="flex items-center gap-3 mb-3">
@@ -442,8 +479,8 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
                     >
                         {rescheduleMode ? "일정 변경 및 알림 발송" : "예약 완료하기"}
                     </button>
-                </div>
-            </motion.div>
-        </div>
+                </div >
+            </motion.div >
+        </div >
     );
 }
