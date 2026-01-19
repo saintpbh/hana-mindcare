@@ -6,6 +6,9 @@ import { SentimentChart } from "@/components/analysis/SentimentChart";
 import { SOAPEditor } from "@/components/analysis/SOAPEditor";
 import { InsightCard } from "@/components/analysis/InsightCard";
 
+
+export const dynamic = 'force-dynamic';
+
 export default function AnalysisPage() {
     return (
         <div className="min-h-screen bg-[var(--color-warm-white)] p-8 overflow-auto">

@@ -82,9 +82,12 @@ export function NextSessionCard() {
                     </div>
 
                     <div className="flex gap-3">
-                        <button className="flex-1 bg-white text-[var(--color-midnight-navy)] py-3 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2 shadow-lg">
+                        <Link
+                            href={`/session/${session.clientId}`}
+                            className="flex-1 bg-white text-[var(--color-midnight-navy)] py-3 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2 shadow-lg"
+                        >
                             Enter Session Room <ArrowRight className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-colors text-white">
                             <FileText className="w-5 h-5" />
                         </button>

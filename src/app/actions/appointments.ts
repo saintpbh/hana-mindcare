@@ -64,6 +64,7 @@ export async function getNextSession() {
             success: true,
             data: {
                 id: nextSession.id,
+                clientId: nextSession.clientId,
                 clientName: nextSession.client.name,
                 condition: nextSession.client.condition || "General",
                 time: nextSession.date.toISOString(), // Full ISO string for calculation
