@@ -113,18 +113,23 @@ export default function SchedulePage() {
     // Smart Reschedule Handler
     const handleReschedule = (id: string | number, newDate: Date) => {
         console.log(`Rescheduling appointment ${id} to ${newDate.toISOString()}`);
-        const client = clients.find(c => c.id === id); // NOTE: id might be appointmentId or clientId? 
-        // CalendarView passes appointment ID. We need appointment's client.
+
         const appointment = appointments.find(a => a.id === id);
-        if (appointment) {
-            const client = clients.find(c => c.name === appointment.client); // Weak link by name, ideally clientId
-            // Better: appointment should have clientId
+        if (appointment && appointment.clientId) {
+            // Robust lookup by ID
+            const client = clients.find(c => c.id === appointment.clientId);
+
             if (client) {
                 setRescheduleTarget({ client, newDate });
             } else {
+                console.warn("Client details not found in cache, attempting to construct minimal client.");
+                // Fallback: Construct minimal client if full details missing (or fetch single)
+                // For now, if getClients() worked, this should be fine. 
+                // If failing, might need to fetchClient(clientId) here.
                 console.error("Client not found for rescheduling");
-                // Fallback or fetch client
             }
+        } else {
+            console.error("Appointment or ClientID not found");
         }
     };
 

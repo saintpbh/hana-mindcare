@@ -24,6 +24,7 @@ export interface Appointment {
     status?: "Scheduled" | "Completed" | "Canceled" | "NoShow";
     recurring?: "None" | "Weekly" | "BiWeekly" | "Monthly";
     notes?: string;
+    clientId?: string; // Add clientId for robust linking
 }
 
 interface CalendarViewProps {
