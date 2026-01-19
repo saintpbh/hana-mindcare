@@ -1,9 +1,7 @@
-import React from 'react';
 "use client";
 
-import { motion } from "framer-motion";
 import React from "react";
-
+import { motion } from "framer-motion";
 export function AudioVisualizer({ isRecording = true }: { isRecording?: boolean }) {
     // Simulate 30 bars for the visualizer
     const bars = Array.from({ length: 30 });
