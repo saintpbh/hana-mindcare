@@ -24,41 +24,43 @@ export async function getMonthlySchedule(year: number, month: number) {
         const endDate = new Date(year, month, 0);
         const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
-        const scheduledClients = await prisma.client.findMany({
+        // Query Session model instead of Client model
+        const sessions = await prisma.session.findMany({
             where: {
-                nextSession: {
-                    startsWith: monthStr
+                date: {
+                    gte: startDate,
+                    lte: endDate
                 },
-                isSessionCanceled: false
+                // Optionally filter out canceled if needed, or include them with status
+                // status: { not: 'Canceled' } // Let's include everything and handle in UI
             },
-            select: {
-                id: true,
-                name: true,
-                contact: true,
-                nextSession: true,
-                sessionTime: true,
-                sessionType: true,
-                location: true,
-                condition: true
-            }
+            include: {
+                client: {
+                    select: {
+                        id: true,
+                        name: true,
+                        contact: true,
+                        location: true // Fallback location if not in session
+                    }
+                }
+            },
+            orderBy: { date: 'asc' }
         });
 
-        const events: CalendarEvent[] = scheduledClients.map((c: any) => {
-            // Combine date and time to get a proper Date object for sorting/display
-            const dateTimeStr = `${c.nextSession}T${c.sessionTime || '00:00'}:00`;
+        const events: CalendarEvent[] = sessions.map((s: any) => {
             return {
-                id: c.id,
-                title: `${c.name} - 상담`,
-                date: new Date(dateTimeStr),
+                id: s.id, // Now using Session ID (UUID)
+                title: `${s.client.name} - ${s.type}`,
+                date: s.date,
                 type: 'session',
-                clientId: c.id,
-                clientName: c.name,
-                clientContact: c.contact,
-                nextSession: c.nextSession,
-                sessionTime: c.sessionTime,
-                sessionType: c.sessionType,
-                location: c.location,
-                status: 'scheduled'
+                clientId: s.client.id,
+                clientName: s.client.name,
+                clientContact: s.client.contact,
+                nextSession: s.date.toISOString().split('T')[0], // derived
+                sessionTime: s.date.toISOString().split('T')[1].substring(0, 5), // HH:MM
+                sessionType: s.type, // Map 'type' to 'sessionType'
+                location: s.client.location, // Use client's default location for now
+                status: s.status.toLowerCase()
             };
         });
 

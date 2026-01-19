@@ -39,8 +39,15 @@ model Session {
   
   date        DateTime
   title       String   // e.g., "Initial Consultation", "CBT Session 1"
-  summary     String   @db.Text
-  sentiment   String   // 'Positive', 'Neutral', 'Negative'
+  type        String   @default("상담") // '상담', '검사', etc.
+  duration    Int      @default(50) // minutes
+  status      String   @default("Scheduled") // 'Scheduled', 'Completed', 'Canceled', 'NoShow'
+  
+  recurring   String?  // 'None', 'Weekly', 'BiWeekly', 'Monthly'
+  
+  // Analysis Fields (Optional for future appointments)
+  summary     String?  @db.Text
+  sentiment   String?   // 'Positive', 'Neutral', 'Negative'
   keywords    String[] // e.g., ["anxiety", "work", "sleep"]
   
   transcript  String?  @db.Text // Verbatim transcript

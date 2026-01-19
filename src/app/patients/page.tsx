@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -10,20 +9,26 @@ import { type Client, Prisma } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { sendSMS } from "@/services/smsService";
 import { usePersistence } from "@/hooks/usePersistence"; // New import
-
 import { NewClientModal } from "@/components/patients/NewClientModal";
+import { IntakeList, type IntakeRequest } from "@/components/patients/IntakeList"; // Import IntakeList
 
 export default function PatientsPage() {
     const { clients, isLoaded, addClient, restartClient } = usePersistence();
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeFilter, setActiveFilter] = useState<"all" | "attention" | "crisis" | "upcoming" | "terminated">("upcoming");
+    const [activeFilter, setActiveFilter] = useState<"intake" | "all" | "attention" | "crisis" | "upcoming" | "terminated">("upcoming");
     const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
-    const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    // const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS); // Removed
+    const [intakeRequests, setIntakeRequests] = useState<IntakeRequest[]>([
+        { id: 101, name: "정다은", requestDate: "2024-01-19 09:30", condition: "심한 불안감 및 불면증 호소", urgency: "Urgent", phone: "010-9876-5432", source: "Website", status: "Pending" },
+        { id: 102, name: "강진우", requestDate: "2024-01-18 14:20", condition: "진로 고민 및 무기력증", urgency: "Normal", phone: "010-1111-2222", source: "Referral", status: "Pending" },
+        { id: 103, name: "박소윤", requestDate: "2024-01-18 11:00", condition: "가족 갈등으로 인한 우울감", urgency: "Critical", phone: "010-3333-4444", source: "Walk-in", status: "Pending" },
+    ]);
+    const [approvingIntake, setApprovingIntake] = useState<IntakeRequest | null>(null);
 
     const filteredClients = clients.filter(client => {
+        if (activeFilter === "intake") return false; // Intake view handled separately
+
         const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (client.englishName && client.englishName.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -37,19 +42,37 @@ export default function PatientsPage() {
         }
 
         const matchesFilter = activeFilter === "all" || client.status === activeFilter;
-        // Hide terminated from regular lists unless explicitly selected
         const isNotTerminated = client.status !== "terminated";
         return matchesSearch && matchesFilter && (activeFilter === "all" ? isNotTerminated : true);
     }).sort((a, b) => {
         if (activeFilter === "upcoming") {
             return new Date(a.nextSession).getTime() - new Date(b.nextSession).getTime();
         }
-        return 0; // Keep default order
+        return 0;
     });
 
     const handleRegisterClient = (newClient: Prisma.ClientCreateInput) => {
-        addClient(newClient); // usePersistence addClient already expects this Partial type
+        addClient(newClient);
         setIsModalOpen(false);
+
+        // If coming from intake approval, remove from list
+        if (approvingIntake) {
+            setIntakeRequests(prev => prev.filter(req => req.id !== approvingIntake.id));
+            setApprovingIntake(null);
+            // Switch to 'all' or 'upcoming' to see the new client? 
+            setActiveFilter("all");
+        }
+    };
+
+    const handleApproveIntake = (req: IntakeRequest) => {
+        setApprovingIntake(req);
+        setIsModalOpen(true);
+    };
+
+    const handleRejectIntake = (id: number) => {
+        if (confirm("정말 이 접수 요청을 반려하시겠습니까?")) {
+            setIntakeRequests(prev => prev.filter(req => req.id !== id));
+        }
     };
 
     return (
@@ -69,7 +92,10 @@ export default function PatientsPage() {
                     </div>
                 </div>
                 <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => {
+                        setApprovingIntake(null);
+                        setIsModalOpen(true);
+                    }}
                     className="h-10 px-5 rounded-full bg-[var(--color-midnight-navy)] text-white text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors flex items-center gap-2 shadow-lg shadow-[var(--color-midnight-navy)]/20"
                 >
                     <Plus className="w-4 h-4" />
@@ -78,7 +104,7 @@ export default function PatientsPage() {
             </header>
 
             {/* Controls */}
-            <div className="flex flex-col md:flex-row gap-4 mb-8 justify-between items-center">
+            <div className="flex flex-col md:flex-row gap-4 mb-8 justify-between items-start md:items-center">
                 {/* Search */}
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-midnight-navy)]/40" />
@@ -92,7 +118,22 @@ export default function PatientsPage() {
                 </div>
 
                 {/* Filters */}
-                <div className="flex gap-2 p-1 bg-white rounded-xl border border-[var(--color-midnight-navy)]/5">
+                <div className="flex flex-wrap gap-2 p-1 bg-white rounded-xl border border-[var(--color-midnight-navy)]/5">
+                    <button
+                        onClick={() => setActiveFilter("intake")}
+                        className={cn(
+                            "px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
+                            activeFilter === "intake"
+                                ? "bg-indigo-600 text-white shadow-sm"
+                                : "text-[var(--color-midnight-navy)]/60 hover:bg-[var(--color-midnight-navy)]/5"
+                        )}
+                    >
+                        신규 접수
+                        {intakeRequests.length > 0 && (
+                            <span className="bg-white text-indigo-600 px-1.5 py-0.5 rounded-full text-[10px] font-bold">{intakeRequests.length}</span>
+                        )}
+                    </button>
+                    <div className="w-px h-6 bg-gray-200 my-auto mx-1"></div>
                     <button
                         onClick={() => setActiveFilter("upcoming")}
                         className={cn(
@@ -152,7 +193,7 @@ export default function PatientsPage() {
             </div>
 
             {/* Bulk Selection Bar */}
-            {selectedClientIds.length > 0 && (
+            {selectedClientIds.length > 0 && activeFilter !== "intake" && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[var(--color-midnight-navy)] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 z-40 animate-in slide-in-from-bottom-4 duration-300">
                     <p className="text-sm">
                         <span className="font-bold text-[var(--color-champagne-gold)]">{selectedClientIds.length}명</span> 선택됨
@@ -174,39 +215,58 @@ export default function PatientsPage() {
                 </div>
             )}
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredClients.length > 0 ? (
-                    filteredClients.map(client => (
-                        <ClientCard
-                            key={client.id}
-                            id={client.id}
-                            name={client.name}
-                            status={client.status as any}
-                            nextSession={client.nextSession}
-                            lastSession={client.lastSession}
-                            tags={client.tags}
-                            isSelected={selectedClientIds.includes(client.id)}
-                            onSelect={(id) => {
-                                setSelectedClientIds(prev =>
-                                    prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-                                );
-                            }}
-                            onRestart={restartClient}
-                        />
-                    ))
-                ) : (
-                    <div className="col-span-full py-20 text-center text-[var(--color-midnight-navy)]/40">
-                        <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                        <p>검색 결과가 없습니다.</p>
-                    </div>
-                )}
-            </div>
+            {/* Content Area */}
+            {activeFilter === "intake" ? (
+                <div className="animate-in fade-in slide-in-from-bottom-2">
+                    <IntakeList
+                        requests={intakeRequests}
+                        onApprove={handleApproveIntake}
+                        onReject={handleRejectIntake}
+                    />
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in">
+                    {filteredClients.length > 0 ? (
+                        filteredClients.map(client => (
+                            <ClientCard
+                                key={client.id}
+                                id={client.id}
+                                name={client.name}
+                                status={client.status as any}
+                                nextSession={client.nextSession}
+                                lastSession={client.lastSession}
+                                tags={client.tags}
+                                isSelected={selectedClientIds.includes(client.id)}
+                                onSelect={(id) => {
+                                    setSelectedClientIds(prev =>
+                                        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+                                    );
+                                }}
+                                onRestart={restartClient}
+                            />
+                        ))
+                    ) : (
+                        <div className="col-span-full py-20 text-center text-[var(--color-midnight-navy)]/40">
+                            <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                            <p>검색 결과가 없습니다.</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <NewClientModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setApprovingIntake(null);
+                }}
                 onRegister={handleRegisterClient}
+                initialData={approvingIntake ? {
+                    name: approvingIntake.name,
+                    contact: approvingIntake.phone,
+                    condition: approvingIntake.condition,
+                    notes: `[Intake Source: ${approvingIntake.source}] urgency level: ${approvingIntake.urgency}`
+                } : undefined}
             />
 
             <MessageModal

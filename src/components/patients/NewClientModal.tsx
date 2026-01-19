@@ -10,17 +10,28 @@ interface NewClientModalProps {
     isOpen: boolean;
     onClose: () => void;
     onRegister: (client: Prisma.ClientCreateInput) => void;
+    initialData?: {
+        name: string;
+        contact: string;
+        condition: string;
+        notes: string;
+    };
 }
 
-export function NewClientModal({ isOpen, onClose, onRegister }: NewClientModalProps) {
-    const [name, setName] = useState("");
+export function NewClientModal({ isOpen, onClose, onRegister, initialData }: NewClientModalProps) {
+    const [name, setName] = useState(initialData?.name || "");
     const [englishName, setEnglishName] = useState("");
     const [age, setAge] = useState("");
     const [gender, setGender] = useState<"Male" | "Female">("Female");
-    const [contact, setContact] = useState("");
-    const [condition, setCondition] = useState("");
+    const [contact, setContact] = useState(initialData?.contact || "");
+    const [condition, setCondition] = useState(initialData?.condition || "");
     const [status, setStatus] = useState<"stable" | "attention" | "crisis">("attention");
-    const [notes, setNotes] = useState("");
+    const [notes, setNotes] = useState(initialData?.notes || "");
+
+    // Reset state when opening with new initialData
+    // (In a real app, use useEffect to sync initialData changes if needed, but here simple init is okay as modal remounts or we can add useEffect if needed)
+
+    // ... rest of the component
 
     const handleRegister = () => {
         if (!name || !age || !condition) return;

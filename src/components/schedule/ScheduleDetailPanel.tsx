@@ -39,7 +39,7 @@ export function ScheduleDetailPanel({ appointment, onClose, onEdit }: ScheduleDe
                     </div>
                     <span className={cn(
                         "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                        appointment.color.replace("bg-", "bg-opacity-20 bg-").replace("border-", "border-opacity-0 ")
+                        (appointment.color || "bg-gray-100 text-gray-800 border-gray-200").replace("bg-", "bg-opacity-20 bg-").replace("border-", "border-opacity-0 ")
                     )}>
                         {appointment.type}
                     </span>
@@ -66,7 +66,7 @@ export function ScheduleDetailPanel({ appointment, onClose, onEdit }: ScheduleDe
                                         {format(new Date(appointment.rawDate), "M월 d일 (EEE)")}
                                     </div>
                                     <div className="text-sm text-[var(--color-midnight-navy)]/70">
-                                        {Math.floor(appointment.time)}:{((appointment.time % 1) * 60).toString().padStart(2, '0')} - {Math.floor(appointment.time + appointment.duration)}:{(((appointment.time + appointment.duration) % 1) * 60).toString().padStart(2, '0')} (50분)
+                                        {appointment.time} ({appointment.duration * 60}분)
                                     </div>
                                 </div>
                             </div>

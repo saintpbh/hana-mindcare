@@ -5,32 +5,51 @@ import { cn } from "@/lib/utils";
 import { GripVertical, MapPin, Video, Phone } from "lucide-react";
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 9); // 9AM to 7PM
-const DAYS = ["월", "화", "수", "목", "금"];
-const ROW_HEIGHT = 80; // px per hour
+export const DAYS = ["월", "화", "수", "목", "금"];
+export const ROW_HEIGHT = 80; // px per hour
 const COL_COUNT = 5;
 
-interface Appointment {
-    id: number;
+export interface Appointment {
+    id: string | number; // Support UUIDs
     title: string;
-    type: string;
-    time: number;
-    day: number;
+    time: string; // Changed to string "HH:MM" to match modal
     duration: number;
-    color: string;
-    location?: string;
-    rawDate?: string;
+    type: string;
+    rawDate: string; // YYYY-MM-DD
+    client: string; // Client Name
+    isNew?: boolean; // For new patients
+    color?: string; // Restore color
+
+    // New fields
+    status?: "Scheduled" | "Completed" | "Canceled" | "NoShow";
+    recurring?: "None" | "Weekly" | "BiWeekly" | "Monthly";
+    notes?: string;
 }
 
 interface CalendarViewProps {
     appointments: Appointment[];
     setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
-    onEditAppointment: (id: number) => void;
+    onEditAppointment: (id: string | number) => void;
     view: "day" | "week" | "month";
     currentDate?: Date;
     onDateChange?: (date: Date) => void;
-    onSelectAppointment?: (id: number) => void;
-    selectedAppointmentId?: number | null;
+    onReschedule?: (id: string | number, newDate: Date) => void;
+    onSelectAppointment?: (id: string | number) => void;
+    selectedAppointmentId?: string | number | null;
 }
+
+// Helper to get day index from date (Mon=0, ..., Fri=4)
+const getDayIndex = (dateStr: string) => {
+    const day = new Date(dateStr).getDay();
+    return day === 0 ? 6 : day - 1; // 0=Mon, 4=Fri. (Adjust if Sunday is 0 in your locale logic, usually getDay() 0 is Sun)
+};
+
+// Helper to get the start of the week (Monday) for a given date
+const getStartOfWeek = (date: Date) => {
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday (0)
+    return new Date(date.getFullYear(), date.getMonth(), diff);
+};
 
 export function CalendarView({
     appointments,
@@ -40,11 +59,12 @@ export function CalendarView({
     currentDate = new Date(), // Default to today
     onDateChange,
     onSelectAppointment,
-    selectedAppointmentId
+    selectedAppointmentId,
+    onReschedule
 }: CalendarViewProps) {
     const gridRef = useRef<HTMLDivElement>(null);
-    const [draggingId, setDraggingId] = useState<number | null>(null);
-    const [resizingId, setResizingId] = useState<number | null>(null);
+    const [draggingId, setDraggingId] = useState<string | number | null>(null);
+    const [resizingId, setResizingId] = useState<string | number | null>(null);
 
     const [dragPos, setDragPos] = useState<{ x: number, y: number } | null>(null);
 
@@ -84,14 +104,14 @@ export function CalendarView({
     const monthDays = generateMonthGrid(currentDate);
 
     // Handle Drag Start
-    const handleDragStart = (e: React.MouseEvent, id: number) => {
+    const handleDragStart = (e: React.MouseEvent, id: string | number) => {
         e.stopPropagation();
         setDraggingId(id);
         setDragPos({ x: e.clientX, y: e.clientY }); // Init pos
     };
 
     // Handle Resize Start (Bottom Handle)
-    const handleResizeStart = (e: React.MouseEvent, id: number) => {
+    const handleResizeStart = (e: React.MouseEvent, id: string | number) => {
         e.stopPropagation();
         setResizingId(id);
     };
@@ -152,13 +172,29 @@ export function CalendarView({
                 setAppointments(prev => prev.map(apt => {
                     if (apt.id !== draggingId) return apt;
 
-                    // Boundaries
-                    const newTime = Math.max(9, Math.min(19 - apt.duration, snappedTime));
+                    // Boundaries (duration is in Hours in View, assume mapped)
+                    const durationInHours = apt.duration;
+                    const newTimeDecimal = Math.max(9, Math.min(19 - durationInHours, snappedTime));
+
+                    // Calculate new RawDate
+                    const day = currentDate.getDay(); // 0=Sun, 1=Mon
+                    const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1);
+                    const monday = new Date(currentDate);
+                    monday.setDate(diff);
+
+                    const newDate = new Date(monday);
+                    newDate.setDate(monday.getDate() + snappedDay);
+                    const newRawDate = newDate.toISOString().split('T')[0];
+
+                    // Helper for decimal to HH:MM
+                    const h = Math.floor(newTimeDecimal);
+                    const m = Math.round((newTimeDecimal - h) * 60);
+                    const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
                     return {
                         ...apt,
-                        day: snappedDay,
-                        time: newTime
+                        rawDate: newRawDate,
+                        time: timeStr
                     };
                 }));
             }
@@ -167,8 +203,12 @@ export function CalendarView({
                 setAppointments(prev => prev.map(apt => {
                     if (apt.id !== resizingId) return apt;
 
-                    // Calculate new duration based on mouse Y vs start time
-                    const newDuration = Math.max(0.5, snappedTime - apt.time); // Min 30 mins
+                    // Helper for HH:MM to decimal
+                    const [ah, am] = apt.time.split(':').map(Number);
+                    const aptTimeDecimal = ah + am / 60;
+
+                    // Calculate new duration
+                    const newDuration = Math.max(0.5, snappedTime - aptTimeDecimal); // Min 30 mins
 
                     return {
                         ...apt,
@@ -181,15 +221,14 @@ export function CalendarView({
 
     const handleMouseUp = () => {
         if (view === "month" && draggingId && dragOverDate) {
-            // Commit drop in Month view
-            setAppointments(prev => prev.map(apt => {
-                if (apt.id !== draggingId) return apt;
-                return {
-                    ...apt,
-                    rawDate: dragOverDate // Update the real date
-                };
-            }));
-            // Provide feedback or server update here
+            // Drop in Month View -> Trigger Smart Reschedule
+            if (onReschedule) {
+                // Find day object
+                const dayObj = monthDays.find(d => formatDate(d.date) === dragOverDate);
+                if (dayObj) {
+                    onReschedule(draggingId, dayObj.date);
+                }
+            }
             setDragOverDate(null);
         }
         setDraggingId(null);
@@ -198,132 +237,147 @@ export function CalendarView({
     };
 
     const renderAppointments = (dayIndex: number) => {
+        // Calculate date for this column
+        const day = currentDate.getDay(); // 0-Sun
+        const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(currentDate);
+        monday.setDate(diff);
+
+        const colDate = new Date(monday);
+        colDate.setDate(monday.getDate() + dayIndex);
+        const colDateStr = colDate.toISOString().split('T')[0];
+
         // Filter appointments for the current day column
-        const filtered = appointments.filter(apt => apt.day === dayIndex);
+        const filtered = appointments.filter(apt => apt.rawDate === colDateStr);
 
-        return filtered.map(apt => (
-            <div
-                key={apt.id}
-                onMouseDown={(e) => handleDragStart(e, apt.id)}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    if (onSelectAppointment) onSelectAppointment(apt.id);
-                }}
-                className={cn(
-                    "absolute left-1 right-1 rounded-lg border shadow-sm transition-all flex flex-col overflow-hidden group z-10",
-                    apt.color,
-                    view === "day" ? "flex-row items-center p-0" : "p-2 flex-col",
-                    draggingId === apt.id ? "opacity-80 scale-[1.02] shadow-xl z-50 cursor-grabbing" : "cursor-grab",
-                    resizingId === apt.id ? "cursor-ns-resize" : "",
-                    selectedAppointmentId === apt.id ? "ring-2 ring-[var(--color-midnight-navy)] ring-offset-1 z-40" : ""
-                )}
-                style={{
-                    top: `${(apt.time - 9) * ROW_HEIGHT}px`,
-                    height: `${apt.duration * ROW_HEIGHT - 4}px` // -4 margin
-                }}
-            >
-                {view === "day" ? (
-                    // Day View Layout: Horizontal Rich Card
-                    <>
-                        {/* 1. Time Box (Left) */}
-                        <div className="w-[80px] shrink-0 flex flex-col justify-center items-center h-full border-r border-black/5 bg-black/5">
-                            <div className="text-sm font-bold opacity-80">
-                                {Math.floor(apt.time)}:{((apt.time % 1) * 60).toString().padStart(2, '0')}
-                            </div>
-                            <div className="text-[10px] opacity-50 font-mono">
-                                {(apt.duration * 60)}min
-                            </div>
-                        </div>
+        return filtered.map((apt, i) => {
+            const [h, m] = apt.time.split(':').map(Number);
+            const timeDecimal = h + m / 60;
 
-                        {/* 2. Main Content (Middle) */}
-                        <div className="flex-1 min-w-0 p-3 flex flex-col justify-center gap-1">
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-lg leading-none">{apt.title}</span>
-                                <span className="text-xs opacity-60 font-medium">12/20회</span>
-                                <div className="flex gap-1 ml-2">
-                                    <span className="text-[10px] uppercase font-bold border border-current px-1.5 py-0.5 rounded-full opacity-70">
-                                        {apt.type}
-                                    </span>
-                                    {apt.type === 'Crisis' && (
-                                        <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                                            CRITICAL
+            return (
+                <div
+                    key={apt.id}
+                    onMouseDown={(e) => handleDragStart(e, apt.id)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSelectAppointment) onSelectAppointment(apt.id);
+                    }}
+                    className={cn(
+                        "absolute left-1 right-1 rounded-lg border shadow-sm transition-all flex flex-col overflow-hidden group z-10",
+                        apt.color,
+                        view === "day" ? "flex-row items-center p-0" : "p-2 flex-col",
+                        draggingId === apt.id ? "opacity-80 scale-[1.02] shadow-xl z-50 cursor-grabbing" : "cursor-grab",
+                        resizingId === apt.id ? "cursor-ns-resize" : "",
+                        selectedAppointmentId === apt.id ? "ring-2 ring-[var(--color-midnight-navy)] ring-offset-1 z-40" : ""
+                    )}
+                    style={{
+                        top: `${(timeDecimal - 9) * ROW_HEIGHT}px`,
+                        height: `${apt.duration * ROW_HEIGHT - 4}px` // -4 margin
+                    }}
+                >
+                    {view === "day" ? (
+                        // Day View Layout: Horizontal Rich Card
+                        <>
+                            {/* 1. Time Box (Left) */}
+                            <div className="w-[80px] shrink-0 flex flex-col justify-center items-center h-full border-r border-black/5 bg-black/5">
+                                <div className="text-sm font-bold opacity-80">
+                                    {Math.floor(timeDecimal)}:{((timeDecimal % 1) * 60).toString().padStart(2, '0')}
+                                </div>
+                                <div className="text-[10px] opacity-50 font-mono">
+                                    {(apt.duration * 60)}min
+                                </div>
+                            </div>
+
+                            {/* 2. Main Content (Middle) */}
+                            <div className="flex-1 min-w-0 p-3 flex flex-col justify-center gap-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-lg leading-none">{apt.title}</span>
+                                    <span className="text-xs opacity-60 font-medium">12/20회</span>
+                                    <div className="flex gap-1 ml-2">
+                                        <span className="text-[10px] uppercase font-bold border border-current px-1.5 py-0.5 rounded-full opacity-70">
+                                            {apt.type}
                                         </span>
-                                    )}
+                                        {apt.type === 'Crisis' && (
+                                            <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                                                CRITICAL
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 text-xs opacity-70">
+                                    <div className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        <span>{(apt as any).location || "양재 센터"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-1 h-1 rounded-full bg-current opacity-50" />
+                                        <span>지난 회기: 과제 수행 완료</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4 text-xs opacity-70">
-                                <div className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    <span>{apt.location || "양재 센터"}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <div className="w-1 h-1 rounded-full bg-current opacity-50" />
-                                    <span>지난 회기: 과제 수행 완료</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 3. Actions / Side Stats (Right) */}
-                        <div className="px-4 flex flex-col justify-center items-end opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onEditAppointment(apt.id); }}
-                                className="p-1.5 rounded-full bg-white/50 hover:bg-white text-[var(--color-midnight-navy)] shadow-sm"
-                            >
-                                <GripVertical className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    // Week View Layout (Vertical Compact)
-                    <>
-                        {/* Header: Time & Actions */}
-                        <div className="flex justify-between items-start mb-1 h-5">
-                            <span className="text-[10px] font-bold opacity-70">
-                                {Math.floor(apt.time)}:{((apt.time % 1) * 60).toString().padStart(2, '0')}
-                            </span>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* 3. Actions / Side Stats (Right) */}
+                            <div className="px-4 flex flex-col justify-center items-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onEditAppointment(apt.id); }}
-                                    className="p-0.5 rounded hover:bg-black/10 text-[10px]"
-                                    title="예약 변경"
+                                    className="p-1.5 rounded-full bg-white/50 hover:bg-white text-[var(--color-midnight-navy)] shadow-sm"
                                 >
-                                    <GripVertical className="w-3 h-3" />
+                                    <GripVertical className="w-4 h-4" />
                                 </button>
                             </div>
-                        </div>
-
-                        {/* Body: Client Info */}
-                        <div className="flex-1 min-h-0 flex flex-col gap-0.5">
-                            <div className="font-bold leading-tight truncate">{apt.title}</div>
-                            <div className="flex flex-wrap gap-1 items-center mt-0.5">
-                                <span className="text-[9px] uppercase tracking-wide opacity-80 border border-current px-1 rounded-sm">{apt.type}</span>
-                                <div className="flex gap-1 opacity-60">
-                                    {apt.id % 2 === 0 ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+                        </>
+                    ) : (
+                        // Week View Layout (Vertical Compact)
+                        <>
+                            {/* Header: Time & Actions */}
+                            <div className="flex justify-between items-start mb-1 h-5">
+                                <span className="text-[10px] font-bold opacity-70">
+                                    {Math.floor(timeDecimal)}:{((timeDecimal % 1) * 60).toString().padStart(2, '0')}
+                                </span>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onEditAppointment(apt.id); }}
+                                        className="p-0.5 rounded hover:bg-black/10 text-[10px]"
+                                        title="예약 변경"
+                                    >
+                                        <GripVertical className="w-3 h-3" />
+                                    </button>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Footer: Quick Actions (Visible on Hover/Selection) */}
-                        {/* Only show if height allows */}
-                        {apt.duration >= 1 && (
-                            <div className="mt-1 pt-1 border-t border-black/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-[9px] font-medium opacity-60">예약변경</span>
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="문자 발송됨" />
+                            {/* Body: Client Info */}
+                            <div className="flex-1 min-h-0 flex flex-col gap-0.5">
+                                <div className="font-bold leading-tight truncate">{apt.title}</div>
+                                <div className="flex flex-wrap gap-1 items-center mt-0.5">
+                                    <span className="text-[9px] uppercase tracking-wide opacity-80 border border-current px-1 rounded-sm">{apt.type}</span>
+                                    <div className="flex gap-1 opacity-60">
+                                        {i % 2 === 0 ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </>
-                )}
 
-                {/* Resize Handle */}
-                <div
-                    onMouseDown={(e) => handleResizeStart(e, apt.id)}
-                    className="absolute bottom-0 left-0 right-0 h-3 flex items-center justify-center cursor-ns-resize hover:bg-black/10 transition-colors z-20"
-                >
-                    <div className="w-8 h-1 rounded-full bg-black/10" />
+                            {/* Footer: Quick Actions (Visible on Hover/Selection) */}
+                            {/* Only show if height allows */}
+                            {apt.duration >= 1 && (
+                                <div className="mt-1 pt-1 border-t border-black/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span className="text-[9px] font-medium opacity-60">예약변경</span>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="문자 발송됨" />
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* Resize Handle */}
+                    <div
+                        onMouseDown={(e) => handleResizeStart(e, apt.id)}
+                        className="absolute bottom-0 left-0 right-0 h-3 flex items-center justify-center cursor-ns-resize hover:bg-black/10 transition-colors z-20"
+                    >
+                        <div className="w-8 h-1 rounded-full bg-black/10" />
+                    </div>
                 </div>
-            </div>
-        ));
+            );
+        }); // End of map
     };
 
     if (view === "month") {
@@ -388,23 +442,37 @@ export function CalendarView({
                                 </div>
 
                                 <div className="flex-1 flex flex-col gap-1 mt-1 overflow-hidden">
-                                    {dayApts.slice(0, 3).map(a => (
-                                        <div
-                                            key={a.id}
-                                            onMouseDown={(e) => handleDragStart(e, a.id)}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onEditAppointment(a.id); // Click to edit
-                                            }}
-                                            className={cn(
-                                                "text-[10px] px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80 transition-opacity shadow-sm border border-transparent",
-                                                a.color,
-                                                draggingId === a.id ? "opacity-50" : "hover:border-[var(--color-midnight-navy)]/10"
-                                            )}
-                                        >
-                                            {a.title}
-                                        </div>
-                                    ))}
+                                    {dayApts.slice(0, 3).map((apt) => {
+                                        // Visual Styles based on Status
+                                        const isCanceled = apt.status === 'Canceled' || apt.status === 'NoShow';
+                                        const isCompleted = apt.status === 'Completed';
+
+                                        return (
+                                            <div
+                                                key={apt.id}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onSelectAppointment?.(apt.id);
+                                                }}
+                                                className={cn(
+                                                    "px-2 py-1.5 rounded-lg text-xs mb-1 cursor-pointer transition-all border border-transparent hover:scale-[1.02]",
+                                                    isCanceled ? "bg-red-50 text-red-400 line-through decoration-red-400/50" :
+                                                        isCompleted ? "bg-gray-100 text-gray-500 border-gray-200" :
+                                                            "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-200"
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-bold truncate">{apt.time} {apt.title}</span>
+                                                    {apt.recurring && apt.recurring !== 'None' && (
+                                                        <span className="text-[10px] opacity-70">↻</span>
+                                                    )}
+                                                </div>
+                                                {apt.status === 'NoShow' && (
+                                                    <span className="text-[10px] text-red-500 font-bold no-underline block mt-0.5">No-Show</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                     {dayApts.length > 3 && (
                                         <div className="text-[9px] text-[var(--color-midnight-navy)]/40 px-1.5 hover:underline cursor-pointer">
                                             +{dayApts.length - 3} more
