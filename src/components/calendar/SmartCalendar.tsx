@@ -399,9 +399,23 @@ export function SmartCalendar({
                                                             <Clock className="w-3 h-3" />
                                                             <span>50min</span>
                                                         </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <User className="w-3 h-3" />
-                                                            <span>{getTypeLabel(event.sessionType)}</span>
+                                                        <div className="flex items-center gap-1 transition-colors">
+                                                            {event.sessionType === 'online' ? (
+                                                                <div className="flex items-center gap-1 text-blue-500 font-medium bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                                                    <span>화상 상담</span>
+                                                                </div>
+                                                            ) : event.sessionType === 'phone' ? (
+                                                                <div className="flex items-center gap-1 text-rose-500 font-medium bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-100">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                                                    <span>전화 상담</span>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <User className="w-3 h-3" />
+                                                                    <span>대면 상담</span>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

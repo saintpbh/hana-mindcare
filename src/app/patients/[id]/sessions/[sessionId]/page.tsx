@@ -8,6 +8,10 @@ interface PageProps {
     params: Promise<{ id: string; sessionId: string }>;
 }
 
+
+
+export const dynamic = 'force-dynamic';
+
 export default async function SessionDetailPage({ params }: PageProps) {
     // Await params first (Next.js 15+ convention usually, though depending on version simple access works)
     // Safe to await.

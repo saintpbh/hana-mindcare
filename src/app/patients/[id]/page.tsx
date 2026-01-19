@@ -21,6 +21,9 @@ type ClientWithSessions = Client & {
     quickNotes: { id: string; content: string; createdAt: Date }[];
 };
 
+
+export const dynamic = 'force-dynamic';
+
 export default function PatientPage() {
     const params = useParams();
     const router = useRouter();
