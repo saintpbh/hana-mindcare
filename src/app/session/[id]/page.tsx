@@ -13,11 +13,14 @@ import { FloatingActions } from "@/components/ui/FloatingActions";
 import { cn } from "@/lib/utils";
 import { createSession } from "@/app/actions/sessions";
 
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 export default function SessionPage() {
     const params = useParams();
     const router = useRouter();
     const [isRecording, setIsRecording] = useState(false);
     const [showInsights, setShowInsights] = useState(false);
+    const [isEndSessionModalOpen, setIsEndSessionModalOpen] = useState(false);
 
     const [transcriptCount, setTranscriptCount] = useState(0);
     const [notes, setNotes] = useState("");
@@ -41,8 +44,12 @@ export default function SessionPage() {
 
     const isOverTime = duration >= SESSION_TARGET_MINUTES * 60;
 
-    const handleEndSession = async () => {
-        if (!confirm("세션을 종료하시겠습니까? 상담 내용이 저장됩니다.")) return;
+    const onEndSessionClick = () => {
+        setIsEndSessionModalOpen(true);
+    };
+
+    const handleConfirmEndSession = async () => {
+        setIsEndSessionModalOpen(false);
 
         // Collect data
         // For the simulation, we reconstruct the transcript based on what was "streamed"
@@ -62,7 +69,6 @@ export default function SessionPage() {
         });
 
         if (result.success) {
-            alert("세션이 성공적으로 저장되었습니다.");
             router.push(`/patients/${params.id}`);
         } else {
             alert("세션 저장 실패: " + result.error);
@@ -100,7 +106,7 @@ export default function SessionPage() {
                     </div>
 
                     <button
-                        onClick={handleEndSession}
+                        onClick={onEndSessionClick}
                         className="px-4 py-1.5 bg-[var(--color-midnight-navy)] text-white text-sm font-medium rounded-full hover:bg-[var(--color-midnight-navy)]/90 transition-colors"
                     >
                         세션 종료
@@ -147,6 +153,33 @@ export default function SessionPage() {
                     onToggleInsights={() => setShowInsights(!showInsights)}
                 />
             </main>
+
+            {/* End Session Confirmation Modal */}
+            <Dialog open={isEndSessionModalOpen} onOpenChange={setIsEndSessionModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>세션 종료 확인</DialogTitle>
+                        <DialogDescription>
+                            현재 세션을 종료하고 상담 내용을 저장하시겠습니까?<br />
+                            종료 후에는 상담 요약 및 분석 페이지로 이동합니다.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <button
+                            onClick={() => setIsEndSessionModalOpen(false)}
+                            className="px-4 py-2 text-sm text-[var(--color-midnight-navy)] hover:bg-[var(--color-midnight-navy)]/5 rounded-lg transition-colors"
+                        >
+                            취소
+                        </button>
+                        <button
+                            onClick={handleConfirmEndSession}
+                            className="px-4 py-2 text-sm bg-[var(--color-midnight-navy)] text-white hover:bg-[var(--color-midnight-navy)]/90 rounded-lg transition-colors"
+                        >
+                            종료 및 저장
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
