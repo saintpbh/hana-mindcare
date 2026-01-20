@@ -14,7 +14,7 @@ const TABS = [
     { id: "locations", label: "상담 장소 (Locations)", icon: MapPinIcon },
     { id: "counselors", label: "상담사 관리 (Counselors)", icon: Users },
     { id: "ai", label: "AI 설정 (Intelligence)", icon: Sparkles },
-    { id: "zoom", label: "Zoom 연동 (Zoom)", icon: Video },
+    { id: "zoom", label: "회의 연동 (Meetings)", icon: Video },
 ];
 
 import { MapPin as MapPinIcon, Plus, Trash2, Video, Users } from "lucide-react";
@@ -88,6 +88,8 @@ export default function SettingsPage() {
 // ... existing components ...
 
 function ZoomSettings() {
+    const [provider, setProvider] = useState<"zoom" | "jitsi" | "personal">("jitsi");
+    const [personalLink, setPersonalLink] = useState("");
     const [accountId, setAccountId] = useState("");
     const [clientId, setClientId] = useState("");
     const [clientSecret, setClientSecret] = useState("");
@@ -96,10 +98,14 @@ function ZoomSettings() {
     useEffect(() => {
         // Load settings from DB
         const load = async () => {
+            const prov = await getSetting('MEETING_PROVIDER');
+            const plink = await getSetting('PERSONAL_MEETING_LINK');
             const acc = await getSetting('ZOOM_ACCOUNT_ID');
             const cli = await getSetting('ZOOM_CLIENT_ID');
             const sec = await getSetting('ZOOM_CLIENT_SECRET');
 
+            if (prov.success) setProvider((prov.data as any) || "jitsi");
+            if (plink.success) setPersonalLink(plink.data || "");
             if (acc.success) setAccountId(acc.data || "");
             if (cli.success) setClientId(cli.data || "");
             if (sec.success) setClientSecret(sec.data || "");
@@ -110,63 +116,152 @@ function ZoomSettings() {
 
     const handleSave = async () => {
         setIsLoading(true);
+        await saveSetting('MEETING_PROVIDER', provider);
+        await saveSetting('PERSONAL_MEETING_LINK', personalLink);
         await saveSetting('ZOOM_ACCOUNT_ID', accountId);
         await saveSetting('ZOOM_CLIENT_ID', clientId);
         await saveSetting('ZOOM_CLIENT_SECRET', clientSecret);
         setIsLoading(false);
-        alert("Zoom 설정이 저장되었습니다.");
+        alert("회의 연동 설정이 저장되었습니다.");
     };
 
     return (
         <div className="space-y-8">
             <div>
-                <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">Zoom 연동 설정</h3>
+                <h3 className="text-lg font-bold text-[var(--color-midnight-navy)] mb-6">비대면 회의 연동 설정</h3>
                 <p className="text-sm text-[var(--color-midnight-navy)]/60 mb-8 leading-relaxed">
-                    상담 예약 시 Zoom 회의 링크를 자동으로 생성하기 위해 Server-to-Server OAuth 앱 정보를 입력해주세요.<br />
-                    <a href="https://marketplace.zoom.us/" target="_blank" className="text-blue-600 underline">Zoom App Marketplace</a>에서 앱을 생성하고 자격 증명을 확인하세요.
+                    상담 예약 시 자동으로 생성될 화상 회의 방식을 선택하세요. <br />
+                    <strong>줌 프로 버전이 없는 경우 Jitsi Meet(무료)</strong>를 권장합니다.
                 </p>
 
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Account ID</label>
-                        <input
-                            type="text"
-                            value={accountId}
-                            onChange={(e) => setAccountId(e.target.value)}
-                            placeholder="Zoom Account ID"
-                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Client ID</label>
-                        <input
-                            type="text"
-                            value={clientId}
-                            onChange={(e) => setClientId(e.target.value)}
-                            placeholder="Zoom App Client ID"
-                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Client Secret</label>
-                        <input
-                            type="password"
-                            value={clientSecret}
-                            onChange={(e) => setClientSecret(e.target.value)}
-                            placeholder="Zoom App Client Secret"
-                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
-                        />
-                    </div>
-                </div>
+                <div className="space-y-8">
+                    {/* Provider Selection */}
+                    <div className="space-y-4">
+                        <label className="text-sm font-bold text-[var(--color-midnight-navy)]">회의 방식 선택</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button
+                                onClick={() => setProvider("jitsi")}
+                                className={cn(
+                                    "p-4 rounded-xl border text-left transition-all",
+                                    provider === "jitsi"
+                                        ? "border-[var(--color-midnight-navy)] bg-[var(--color-midnight-navy)]/5 ring-1 ring-[var(--color-midnight-navy)]"
+                                        : "border-gray-200 hover:border-gray-300"
+                                )}
+                            >
+                                <div className="font-bold text-[var(--color-midnight-navy)] mb-1">Jitsi Meet (추천)</div>
+                                <div className="text-xs text-green-600 font-medium italic">완전 무료 / 무제한</div>
+                                <div className="text-[10px] text-gray-500 mt-1">로그인 없이 즉시 사용 가능한 오픈소스 방식</div>
+                            </button>
 
-                <div className="pt-6">
-                    <button
-                        onClick={handleSave}
-                        disabled={isLoading}
-                        className="bg-[var(--color-midnight-navy)] text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors disabled:opacity-50"
-                    >
-                        {isLoading ? "저장 중..." : "설정 저장하기"}
-                    </button>
+                            <button
+                                onClick={() => setProvider("personal")}
+                                className={cn(
+                                    "p-4 rounded-xl border text-left transition-all",
+                                    provider === "personal"
+                                        ? "border-[var(--color-midnight-navy)] bg-[var(--color-midnight-navy)]/5 ring-1 ring-[var(--color-midnight-navy)]"
+                                        : "border-gray-200 hover:border-gray-300"
+                                )}
+                            >
+                                <div className="font-bold text-[var(--color-midnight-navy)] mb-1">고정 개인 링크</div>
+                                <div className="text-xs text-amber-600 font-medium italic">줌 무료 버전용</div>
+                                <div className="text-[10px] text-gray-500 mt-1">본인의 고정 줌 링크(PMI)를 상담에 사용</div>
+                            </button>
+
+                            <button
+                                onClick={() => setProvider("zoom")}
+                                className={cn(
+                                    "p-4 rounded-xl border text-left transition-all",
+                                    provider === "zoom"
+                                        ? "border-[var(--color-midnight-navy)] bg-[var(--color-midnight-navy)]/5 ring-1 ring-[var(--color-midnight-navy)]"
+                                        : "border-gray-200 hover:border-gray-300"
+                                )}
+                            >
+                                <div className="font-bold text-[var(--color-midnight-navy)] mb-1">Zoom API 연동</div>
+                                <div className="text-xs text-blue-600 font-medium italic">줌 프로 이상 필요</div>
+                                <div className="text-[10px] text-gray-500 mt-1">상담마다 고유한 회의실 링크 자동 생성</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {provider === "personal" && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-2 p-4 bg-amber-50 rounded-xl border border-amber-200"
+                        >
+                            <label className="text-xs font-bold text-amber-900 uppercase tracking-wider">개인 상담 링크 URL</label>
+                            <input
+                                type="url"
+                                value={personalLink}
+                                onChange={(e) => setPersonalLink(e.target.value)}
+                                placeholder="https://zoom.us/j/me/..."
+                                className="w-full p-3 rounded-lg border border-amber-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                            <p className="text-[10px] text-amber-700">모든 상담 예약에 이 링크가 동일하게 전송됩니다.</p>
+                        </motion.div>
+                    )}
+
+                    {provider === "zoom" && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-4 border-l-4 border-blue-500 pl-4 py-2"
+                        >
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Account ID</label>
+                                <input
+                                    type="text"
+                                    value={accountId}
+                                    onChange={(e) => setAccountId(e.target.value)}
+                                    placeholder="Zoom Account ID"
+                                    className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Client ID</label>
+                                <input
+                                    type="text"
+                                    value={clientId}
+                                    onChange={(e) => setClientId(e.target.value)}
+                                    placeholder="Zoom App Client ID"
+                                    className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">Client Secret</label>
+                                <input
+                                    type="password"
+                                    value={clientSecret}
+                                    onChange={(e) => setClientSecret(e.target.value)}
+                                    placeholder="Zoom App Client Secret"
+                                    className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 text-sm font-mono"
+                                />
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {provider === "jitsi" && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="p-4 bg-green-50 rounded-xl border border-green-200"
+                        >
+                            <p className="text-sm text-green-800">
+                                <strong>Jitsi Meet</strong>는 별도의 설정 없이 바로 사용 가능합니다. <br />
+                                상담 예약 시마다 고유한 무료 회의실 링크가 생성됩니다.
+                            </p>
+                        </motion.div>
+                    )}
+
+                    <div className="pt-6">
+                        <button
+                            onClick={handleSave}
+                            disabled={isLoading}
+                            className="bg-[var(--color-midnight-navy)] text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors disabled:opacity-50"
+                        >
+                            {isLoading ? "저장 중..." : "회의 설정 저장하기"}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -168,6 +168,7 @@ export default function PatientPage() {
                         <MobileAccessControl
                             client={client}
                             onMessageClick={() => setIsMessageOpen(true)}
+                            onUpdate={(updated) => setClient((prev: any) => prev ? { ...prev, ...updated } : null)}
                         />
                     </div>
 

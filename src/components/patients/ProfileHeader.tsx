@@ -1,7 +1,9 @@
-import { Shield, Sparkles, MessageCircle, Calendar, Send, Edit3, MessageSquare } from "lucide-react";
+import { Shield, Sparkles, MessageCircle, Calendar, Send, Edit3, MessageSquare, Video, Copy } from "lucide-react";
 // import { type Client } from "@prisma/client";
 type Client = any;
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { LinkCopyModal } from "@/components/common/LinkCopyModal";
 
 interface ProfileHeaderProps {
     client: Client;
@@ -16,6 +18,7 @@ interface ProfileHeaderProps {
 
 export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule, onEdit, onMessage, onTerminate, onCareMessage }: ProfileHeaderProps) {
     const isTerminated = client.status === 'terminated';
+    const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
     return (
         <div className="bg-white rounded-3xl p-8 border border-[var(--color-midnight-navy)]/5 shadow-sm relative overflow-hidden">
@@ -86,7 +89,7 @@ export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule,
                         <div>
                             <div className="text-xs text-[var(--color-midnight-navy)]/40 uppercase tracking-wider mb-1">Tags</div>
                             <div className="flex gap-1">
-                                {client.tags.slice(0, 2).map(tag => (
+                                {client.tags.slice(0, 2).map((tag: string) => (
                                     <span key={tag} className="px-2 py-0.5 bg-[var(--color-midnight-navy)]/5 rounded text-xs text-[var(--color-midnight-navy)]/70">
                                         {tag}
                                     </span>
@@ -107,6 +110,57 @@ export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule,
                                 <MessageCircle className="w-4 h-4" />
                                 상담 시작 (Start)
                             </button>
+
+                            {/* Video Chat Button */}
+                            {(() => {
+                                // Find the nearest upcoming session with a meeting link
+                                const futureSessions = client.sessions?.filter((s: any) => new Date(s.date) >= new Date() && s.meetingLink) || [];
+                                const upcomingSession = futureSessions.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+
+                                const videoLink = upcomingSession?.meetingLink || `https://meet.jit.si/HanaMindcare-${client.name}-${client.id.slice(0, 4)}`;
+                                const isScheduled = !!upcomingSession?.meetingLink;
+
+                                const handleCopyLink = (e: React.MouseEvent) => {
+                                    e.preventDefault();
+                                    navigator.clipboard.writeText(videoLink);
+                                    setCopiedLink(videoLink);
+                                };
+
+                                return (
+                                    <>
+                                        <div className="flex gap-2 w-full">
+                                            <a
+                                                href={videoLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={cn(
+                                                    "flex-1 py-3 px-4 rounded-xl font-medium transition-all shadow-md flex items-center justify-center gap-2",
+                                                    isScheduled
+                                                        ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-900/20"
+                                                        : "bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] hover:bg-[var(--color-midnight-navy)]/5"
+                                                )}
+                                            >
+                                                <Video className={cn("w-4 h-4", isScheduled ? "text-white" : "text-emerald-600")} />
+                                                {isScheduled ? "화상 입장" : "화상 회의"}
+                                            </a>
+                                            <button
+                                                onClick={handleCopyLink}
+                                                title="링크 복사 (카카오톡 발송용)"
+                                                className="px-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-white text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)] hover:bg-[var(--color-midnight-navy)]/5 transition-colors flex items-center justify-center"
+                                            >
+                                                <Copy className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <LinkCopyModal
+                                            isOpen={!!copiedLink}
+                                            onClose={() => setCopiedLink(null)}
+                                            link={copiedLink || ""}
+                                            description={`화상 상담 링크가 복사되었습니다.\n카카오톡 등에 붙여넣기(Ctrl+V) 하세요.`}
+                                        />
+                                    </>
+                                );
+                            })()}
+
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={onPrescribe}

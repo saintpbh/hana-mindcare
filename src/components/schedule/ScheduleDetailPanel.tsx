@@ -45,7 +45,7 @@ export function ScheduleDetailPanel({ appointment, onClose, onEdit }: ScheduleDe
                     </span>
                 </div>
                 <div className="text-sm text-[var(--color-midnight-navy)]/60 font-medium">
-                    내담자 ID: #{appointment.id.toString().slice(-4)}
+                    내담자 ID: #{appointment.clientId ? appointment.clientId.toString().slice(-4) : "NEW"}
                 </div>
             </div>
 
@@ -77,15 +77,15 @@ export function ScheduleDetailPanel({ appointment, onClose, onEdit }: ScheduleDe
                                 </div>
                                 <div>
                                     <div className="text-sm font-bold text-[var(--color-midnight-navy)]">
-                                        {appointment.type.includes('비대면') ? '비대면 화상 상담 (Zoom)' : (appointment.location || "양재 센터")}
+                                        {appointment.type.includes('비대면') ? '비대면 화상 상담' : (appointment.location || "양재 센터")}
                                     </div>
                                     <div className="text-sm text-[var(--color-midnight-navy)]/70">
                                         {appointment.meetingLink ? (
-                                            <a href={appointment.meetingLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                                                Zoom 회의 참가 <Video className="w-3 h-3" />
+                                            <a href={appointment.meetingLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 font-medium">
+                                                {appointment.meetingLink.includes('jit.si') ? 'Jitsi 회의 참가' : '회의 참가'} <Video className="w-3 h-3" />
                                             </a>
                                         ) : (
-                                            appointment.type.includes('비대면') ? '링크 생성 중...' : '상담실 302호'
+                                            appointment.type.includes('비대면') ? '링크 없음' : '상담 센터'
                                         )}
                                     </div>
                                 </div>
@@ -131,9 +131,21 @@ export function ScheduleDetailPanel({ appointment, onClose, onEdit }: ScheduleDe
 
             {/* Footer Action */}
             <div className="p-6 border-t border-[var(--color-midnight-navy)]/5 bg-[var(--color-warm-white)]/30">
-                <button className="w-full py-3 rounded-xl bg-[var(--color-midnight-navy)] text-white text-sm font-bold hover:bg-[var(--color-midnight-navy)]/90 transition-shadow shadow-lg shadow-[var(--color-midnight-navy)]/20">
-                    상담 시작하기 (Start Session)
-                </button>
+                {appointment.meetingLink ? (
+                    <a
+                        href={appointment.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-3 rounded-xl bg-[var(--color-midnight-navy)] text-white text-sm font-bold hover:bg-[var(--color-midnight-navy)]/90 transition-shadow shadow-lg shadow-[var(--color-midnight-navy)]/20 flex items-center justify-center gap-2"
+                    >
+                        {appointment.meetingLink.includes('jit.si') ? 'Jitsi 상담 시작' : '화상 상담 시작'}
+                        <Video className="w-4 h-4" />
+                    </a>
+                ) : (
+                    <button className="w-full py-3 rounded-xl bg-[var(--color-midnight-navy)] text-white text-sm font-bold hover:bg-[var(--color-midnight-navy)]/90 transition-shadow shadow-lg shadow-[var(--color-midnight-navy)]/20">
+                        상담 시작하기 (Start Session)
+                    </button>
+                )}
             </div>
         </div>
     );

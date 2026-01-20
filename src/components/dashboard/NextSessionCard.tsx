@@ -92,7 +92,24 @@ export function NextSessionCard({ refreshKey, onReschedule, onStatusChange }: Ne
                     </div>
 
                     <div className="flex gap-2">
+                        {session.meetingLink && (
+                            <a
+                                href={session.meetingLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center backdrop-blur-md hover:bg-emerald-500/30 transition-colors group/link"
+                                title="Join Meeting"
+                            >
+                                <Video className="w-5 h-5 text-emerald-400 group-hover/link:scale-110 transition-transform" />
+                            </a>
+                        )}
+                        {!session.meetingLink && (
+                            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-md">
+                                <Video className="w-5 h-5 text-white/40" />
+                            </div>
+                        )}
                         <div className="relative">
+
                             <button
                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                                 className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-md hover:bg-white/20 transition-colors"
@@ -133,9 +150,6 @@ export function NextSessionCard({ refreshKey, onReschedule, onStatusChange }: Ne
                                     </div>
                                 </>
                             )}
-                        </div>
-                        <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-md">
-                            <Video className="w-5 h-5 text-white" />
                         </div>
                     </div>
                 </div>

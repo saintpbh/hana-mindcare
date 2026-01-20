@@ -29,6 +29,7 @@ model Client {
   isPortalActive    Boolean  @default(true)
   portalToken       String?   @unique @default(uuid())
   lastPortalAccessAt DateTime?
+  isVideoEnabled    Boolean  @default(false)
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -168,4 +169,82 @@ model SystemSetting {
   value     String   @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// Community Models
+// ============================================
+
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  category    String   // '상담 팁', '케이스 스터디', '정보 공유', '자료 요청', '운영/경영', '자유 수다'
+  tags        String[]
+  isAnonymous Boolean  @default(false)
+  viewCount   Int      @default(0)
+  
+  // Author (optional for anonymous posts)
+  authorId    String?
+  authorName  String?  // Cached for performance
+  authorRole  String?  // Cached for performance
+  
+  comments    Comment[]
+  likes       PostLike[]
+  bookmarks   PostBookmark[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  // Author (optional for anonymous comments)
+  authorId  String?
+  authorName String?
+  authorRole String?
+  
+  // Nested comments (replies)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  
+  isHelpful Int      @default(0)  // "도움됨" 카운트
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([postId])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String   // Counselor ID
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([postId, userId])
+  @@index([postId])
+}
+
+model PostBookmark {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String   // Counselor ID
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([postId, userId])
+  @@index([userId])
 }

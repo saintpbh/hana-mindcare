@@ -20,16 +20,19 @@ import {
     Bell,
     TrendingUp,
     ChevronRight,
-    Play
+    Play,
+    Video
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getClientVideoStatus } from "@/app/actions/mobile";
 
 type Tab = "home" | "insights" | "library" | "messages" | "profile";
 
-export function MobileClientLayout({ client, nextSession }: { client: any, nextSession: any }) {
+export function MobileClientLayout({ client: initialClient, nextSession }: { client: any, nextSession: any }) {
     const [activeTab, setActiveTab] = useState<Tab>("home");
     const [isCrisisOpen, setIsCrisisOpen] = useState(false);
     const [greeting, setGreeting] = useState("반가워요");
+    const [client, setClient] = useState(initialClient);
 
     useEffect(() => {
         const hour = new Date().getHours();
@@ -37,6 +40,51 @@ export function MobileClientLayout({ client, nextSession }: { client: any, nextS
         else if (hour < 18) setGreeting("편안한 오후인가요?");
         else setGreeting("오늘 하루 고생 많았어요");
     }, []);
+
+    // Optimized polling: only when page is visible, every 30 seconds
+    useEffect(() => {
+        let pollInterval: NodeJS.Timeout | null = null;
+
+        const startPolling = () => {
+            if (pollInterval) return; // Already polling
+
+            pollInterval = setInterval(async () => {
+                // Only poll if page is visible
+                if (document.visibilityState === 'visible') {
+                    const result = await getClientVideoStatus(client.id);
+                    if (result.success && result.data) {
+                        setClient((prev: any) => ({ ...prev, isVideoEnabled: (result.data as any)?.isVideoEnabled }));
+                    }
+                }
+            }, 30000); // 30 seconds - much less server load
+        };
+
+        const stopPolling = () => {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        };
+
+        // Start polling initially
+        startPolling();
+
+        // Listen for visibility changes
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                startPolling();
+            } else {
+                stopPolling();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            stopPolling();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [client.id]);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -82,13 +130,45 @@ export function MobileClientLayout({ client, nextSession }: { client: any, nextS
                                         <span className="text-xs font-bold text-[var(--color-champagne-gold)]">D-DAY</span>
                                     </div>
                                     <div className="text-2xl font-bold mb-1">
-                                        {format(new Date(nextSession.date), "M월 d일 (EEE) p", { locale: ko })}
+                                        {(() => {
+                                            const sessionDate = new Date(nextSession.date);
+                                            const today = new Date();
+                                            const tomorrow = new Date(today);
+                                            tomorrow.setDate(today.getDate() + 1);
+
+                                            const isTomorrow =
+                                                sessionDate.getDate() === tomorrow.getDate() &&
+                                                sessionDate.getMonth() === tomorrow.getMonth() &&
+                                                sessionDate.getFullYear() === tomorrow.getFullYear();
+
+                                            return (
+                                                <>
+                                                    {isTomorrow && <span className="text-[var(--color-champagne-gold)]">내일 </span>}
+                                                    {format(sessionDate, "M월 d일 (EEE) p", { locale: ko })}
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                     <p className="text-sm opacity-50 mb-8">{nextSession.location || "온라인 화상 상담"}</p>
 
-                                    <button className="w-full py-4 bg-[var(--color-champagne-gold)] text-[var(--color-midnight-navy)] font-bold rounded-2xl text-sm transition-all hover:brightness-110 active:scale-[0.98] shadow-lg shadow-black/20">
-                                        상담실 입장하기
-                                    </button>
+                                    {/* Video Button Logic */}
+                                    {client.isVideoEnabled ? (
+                                        <a
+                                            href={`https://meet.jit.si/HanaMindcare-${client.name}-${client.id.slice(0, 4)}#userInfo.displayName=${encodeURIComponent(client.name)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-full"
+                                        >
+                                            <button className="w-full py-4 bg-emerald-500 text-white font-bold rounded-2xl text-sm transition-all hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2">
+                                                <Video className="w-4 h-4" />
+                                                화상 상담 입장하기 (Video)
+                                            </button>
+                                        </a>
+                                    ) : (
+                                        <button className="w-full py-4 bg-[var(--color-champagne-gold)] text-[var(--color-midnight-navy)] font-bold rounded-2xl text-sm transition-all hover:brightness-110 active:scale-[0.98] shadow-lg shadow-black/20">
+                                            상담실 입장하기 (준비중)
+                                        </button>
+                                    )}
                                 </div>
                             </section>
                         ) : (
@@ -96,8 +176,27 @@ export function MobileClientLayout({ client, nextSession }: { client: any, nextS
                                 <div className="w-16 h-16 bg-[var(--color-warm-white)] rounded-full flex items-center justify-center mx-auto mb-4">
                                     <Wind className="w-8 h-8 text-[var(--color-midnight-navy)]/20" />
                                 </div>
-                                <p className="text-sm text-[var(--color-midnight-navy)]/40 font-medium">예정된 상담 일정이 없습니다.</p>
-                                <button className="mt-4 text-xs font-bold text-[var(--color-midnight-navy)] bg-[var(--color-warm-white)] px-4 py-2 rounded-full">일정 예약하기</button>
+                                <p className="text-sm text-[var(--color-midnight-navy)]/40 font-medium">
+                                    {client.isVideoEnabled ? "예정된 상담이 없지만 화상실은 열려있습니다." : "예정된 상담 일정이 없습니다."}
+                                </p>
+
+                                {client.isVideoEnabled && (
+                                    <a
+                                        href={`https://meet.jit.si/HanaMindcare-${client.name}-${client.id.slice(0, 4)}#userInfo.displayName=${encodeURIComponent(client.name)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block w-full mt-4"
+                                    >
+                                        <button className="w-full py-3 bg-emerald-500 text-white font-bold rounded-full text-sm transition-all hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2">
+                                            <Video className="w-4 h-4" />
+                                            화상 상담실 입장
+                                        </button>
+                                    </a>
+                                )}
+
+                                {!client.isVideoEnabled && (
+                                    <button className="mt-4 text-xs font-bold text-[var(--color-midnight-navy)] bg-[var(--color-warm-white)] px-4 py-2 rounded-full">일정 예약하기</button>
+                                )}
                             </section>
                         )}
 

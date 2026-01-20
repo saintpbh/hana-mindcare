@@ -11,29 +11,34 @@ import {
     MessageSquare,
     Check,
     Clock,
-    Smartphone
+    Smartphone,
+    Video,
+    VideoOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { togglePortalAccess, refreshPortalToken } from "@/app/actions/portal";
+import { updateClient } from "@/app/actions/clients";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 interface MobileAccessControlProps {
     client: any;
     onMessageClick?: () => void;
+    onUpdate?: (client: any) => void;
 }
 
-export function MobileAccessControl({ client, onMessageClick }: MobileAccessControlProps) {
+export function MobileAccessControl({ client, onMessageClick, onUpdate }: MobileAccessControlProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
 
     // Modal State
     const [modalConfig, setModalConfig] = useState<{
         open: boolean;
-        type: 'toggle' | 'refresh';
+        type: 'toggle' | 'refresh' | 'video_toggle';
         title: string;
         description: string;
     }>({
@@ -62,6 +67,18 @@ export function MobileAccessControl({ client, onMessageClick }: MobileAccessCont
         });
     };
 
+    const handleVideoToggle = () => {
+        const isEnabling = !client.isVideoEnabled;
+        setModalConfig({
+            open: true,
+            type: 'video_toggle',
+            title: isEnabling ? '화상 채팅 활성화' : '화상 채팅 비활성화',
+            description: isEnabling
+                ? '내담자 모바일 화면에 "화상 상담" 버튼이 나타납니다. 상담 시간에만 켜두시는 것을 권장합니다.'
+                : '내담자 화면에서 "화상 상담" 버튼이 사라집니다.'
+        });
+    };
+
     const handleRefresh = () => {
         setModalConfig({
             open: true,
@@ -71,17 +88,28 @@ export function MobileAccessControl({ client, onMessageClick }: MobileAccessCont
         });
     };
 
+    const router = useRouter();
+
     const handleConfirm = async () => {
         const type = modalConfig.type;
         setModalConfig(prev => ({ ...prev, open: false }));
 
+        let result;
         if (type === 'toggle') {
-            await togglePortalAccess(client.id, !client.isPortalActive);
+            result = await togglePortalAccess(client.id, !client.isPortalActive);
         } else if (type === 'refresh') {
             setIsRefreshing(true);
-            await refreshPortalToken(client.id);
+            result = await refreshPortalToken(client.id);
             setIsRefreshing(false);
+        } else if (type === 'video_toggle') {
+            result = await updateClient(client.id, { isVideoEnabled: !client.isVideoEnabled } as any);
         }
+
+        if (result?.success && result.data && onUpdate) {
+            onUpdate(result.data);
+        }
+
+        router.refresh();
     };
 
     return (
@@ -187,6 +215,29 @@ export function MobileAccessControl({ client, onMessageClick }: MobileAccessCont
                             </>
                         )}
                     </button>
+
+                    {/* Video Toggle Button */}
+                    <button
+                        onClick={handleVideoToggle}
+                        className={cn(
+                            "col-span-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold active:scale-95 transition-all border",
+                            client.isVideoEnabled
+                                ? "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                                : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
+                        )}
+                    >
+                        {client.isVideoEnabled ? (
+                            <>
+                                <Video className="w-3.5 h-3.5" />
+                                화상 채팅 활성화됨 (ON)
+                            </>
+                        ) : (
+                            <>
+                                <VideoOff className="w-3.5 h-3.5" />
+                                화상 채팅 비활성 (OFF)
+                            </>
+                        )}
+                    </button>
                 </div>
             </main>
 
@@ -199,10 +250,16 @@ export function MobileAccessControl({ client, onMessageClick }: MobileAccessCont
                     <DialogHeader className="mb-4">
                         <div className={cn(
                             "w-16 h-16 rounded-2xl flex items-center justify-center mb-6 mx-auto",
-                            modalConfig.type === 'refresh' ? "bg-amber-50" : (client.isPortalActive ? "bg-rose-50" : "bg-emerald-50")
+                            modalConfig.type === 'refresh'
+                                ? "bg-amber-50"
+                                : modalConfig.type === 'video_toggle'
+                                    ? (client.isVideoEnabled ? "bg-rose-50" : "bg-emerald-50") // Inverting for confirm logic: if ON, we turn OFF (rose). Wait, handleVideoToggle sets title based on !current.
+                                    : (client.isPortalActive ? "bg-rose-50" : "bg-emerald-50")
                         )}>
                             {modalConfig.type === 'refresh' ? (
                                 <RefreshCcw className="w-8 h-8 text-amber-500" />
+                            ) : modalConfig.type === 'video_toggle' ? (
+                                client.isVideoEnabled ? <VideoOff className="w-8 h-8 text-rose-500" /> : <Video className="w-8 h-8 text-emerald-500" />
                             ) : (
                                 client.isPortalActive ? <ShieldOff className="w-8 h-8 text-rose-500" /> : <Shield className="w-8 h-8 text-emerald-500" />
                             )}
@@ -227,7 +284,11 @@ export function MobileAccessControl({ client, onMessageClick }: MobileAccessCont
                             onClick={handleConfirm}
                             className={cn(
                                 "flex-1 h-12 rounded-xl text-white font-medium shadow-lg",
-                                modalConfig.type === 'refresh' ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200" : (client.isPortalActive ? "bg-rose-500 hover:bg-rose-600 shadow-rose-200" : "bg-[var(--color-midnight-navy)] hover:bg-[var(--color-midnight-navy)]/90 shadow-navy-200")
+                                modalConfig.type === 'refresh'
+                                    ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200"
+                                    : modalConfig.type === 'video_toggle'
+                                        ? "bg-[var(--color-midnight-navy)] hover:bg-[var(--color-midnight-navy)]/90 shadow-navy-200"
+                                        : (client.isPortalActive ? "bg-rose-500 hover:bg-rose-600 shadow-rose-200" : "bg-[var(--color-midnight-navy)] hover:bg-[var(--color-midnight-navy)]/90 shadow-navy-200")
                             )}
                         >
                             확인

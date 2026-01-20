@@ -17,6 +17,8 @@ function mapSessionToAppointment(session: any) {
         status: session.status as any,
         recurring: session.recurring as any,
         notes: session.notes || session.summary || "", // Use notes or summary
+        meetingLink: session.meetingLink,
+        location: session.location,
     }
 }
 
@@ -70,6 +72,8 @@ export async function getNextSession() {
                 time: nextSession.date.toISOString(), // Full ISO string for calculation
                 duration: nextSession.duration,
                 type: nextSession.type,
+                location: nextSession.location,
+                meetingLink: nextSession.meetingLink,
                 sessionNumber: 4, // Mock for now, or calc
                 totalSessions: 12, // Mock for now, or calc
                 keySignal: "Check Sleep Patterns", // Mock or from last note
@@ -82,7 +86,7 @@ export async function getNextSession() {
     }
 }
 
-import { createZoomMeeting } from '@/lib/zoom';
+import { generateMeetingLink } from '@/lib/meeting';
 
 export async function createAppointment(data: {
     clientId: string,
@@ -99,9 +103,9 @@ export async function createAppointment(data: {
         const dateTime = new Date(`${data.date}T${data.time}:00`);
         let meetingLink = null;
 
-        // Auto-create Zoom link if type implies video/remote
-        if (data.type.includes('비대면') || data.type.includes('Video') || data.type.includes('Zoom') || data.location === 'Zoom (화상)') {
-            meetingLink = await createZoomMeeting(
+        // Auto-create meeting link if type implies video/remote
+        if (data.type === 'online' || data.type === 'video' || data.type?.includes('비대면') || data.type?.includes('Video') || data.type?.includes('Zoom') || data.location === 'Zoom (화상)' || data.location?.includes('비대면')) {
+            meetingLink = await generateMeetingLink(
                 `${data.type} - 상담 예약`,
                 dateTime,
                 data.duration
@@ -176,5 +180,76 @@ export async function checkAvailability(date: string) {
     } catch (error) {
         console.error("Failed to check availability:", error);
         return { success: false, error: "Failed to check availability" };
+    }
+}
+
+export async function processIntake(data: {
+    name: string,
+    phone: string,
+    email: string,
+    concern: string,
+    notes: string,
+    selectedDay: string,
+    selectedTime: number,
+    location: string,
+    duration: number
+}) {
+    try {
+        // 1. Create Client
+        const client = await prisma.client.create({
+            data: {
+                name: data.name,
+                contact: data.phone,
+                notes: data.notes,
+                condition: data.concern,
+                status: 'stable',
+                age: 30, // Default placeholder
+                gender: 'M', // Default placeholder
+                lastSession: 'None',
+                nextSession: '', // Will update
+                sessionTime: `${data.selectedTime.toString().padStart(2, '0')}:00`,
+                tags: ['intake'],
+            }
+        });
+
+        // 2. Calculate Date (Target day in the CURRENT week)
+        const dayMap: Record<string, number> = { "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6, "Sun": 0 };
+        const targetDay = dayMap[data.selectedDay] || 1;
+
+        const now = new Date();
+        const currentDay = now.getDay();
+        const diff = targetDay - currentDay;
+        const targetDate = new Date(now);
+        targetDate.setDate(now.getDate() + diff);
+        targetDate.setHours(data.selectedTime, 0, 0, 0);
+
+        // 3. Create Session
+        await prisma.session.create({
+            data: {
+                clientId: client.id,
+                date: targetDate,
+                title: '초기 면담 (Intake)',
+                type: '상담',
+                duration: data.duration * 60, // Convert hours to minutes
+                status: 'Scheduled',
+                location: data.location,
+                notes: data.notes
+            }
+        });
+
+        // 4. Update Client nextSession info
+        await prisma.client.update({
+            where: { id: client.id },
+            data: {
+                nextSession: targetDate.toISOString().split('T')[0]
+            }
+        });
+
+        revalidatePath('/schedule');
+        revalidatePath('/');
+        return { success: true, data: client };
+    } catch (error) {
+        console.error("Failed to process intake:", error);
+        return { success: false, error: "Failed to process intake" };
     }
 }

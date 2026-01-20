@@ -135,6 +135,24 @@ export function MessageModal({ isOpen, onClose, clients = [] }: MessageModalProp
                                     </button>
                                 ))}
                             </div>
+                            <div className="flex gap-2 mt-2">
+                                <button
+                                    onClick={() => {
+                                        // Use the first client's info for the link pattern. If multiple, it might be generic or per-client (complex).
+                                        // Assuming single client context usually for "Send Video Link".
+                                        if (clients.length > 0) {
+                                            const c = clients[0];
+                                            const upcoming = c.sessions?.find((s: any) => new Date(s.date) >= new Date() && s.meetingLink);
+                                            const link = upcoming?.meetingLink || `https://meet.jit.si/HanaMindcare-${c.name}-${c.id.slice(0, 4)}`;
+                                            setMessage(prev => prev + (prev ? "\n" : "") + `[화상 상담 접속]\n${link}`);
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    화상 링크 첨부
+                                </button>
+                            </div>
                         </div>
 
                         {/* Message Input */}

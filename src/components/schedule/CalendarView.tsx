@@ -446,12 +446,37 @@ export function CalendarView({
             <div className={cn("grid border-b border-[var(--color-midnight-navy)]/5", view === "day" ? "grid-cols-[60px_1fr]" : "grid-cols-6")}>
                 {/* ... (existing header) ... */}
                 <div className="p-4 border-r border-[var(--color-midnight-navy)]/5 bg-[var(--color-warm-white)]" />
-                {DAYS.filter((_, i) => view === "week" || i === 0).map((day, i) => (
-                    <div key={day} className="p-4 text-center border-r border-[var(--color-midnight-navy)]/5 last:border-r-0 bg-[var(--color-warm-white)]">
-                        <span className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-wider">{day}</span>
-                        <div className="text-lg font-medium text-[var(--color-midnight-navy)] mt-1">{14 + i}</div>
-                    </div>
-                ))}
+                {DAYS.filter((_, i) => view === "week" || i === 0).map((day, i) => {
+                    // Calculate the actual date for this column
+                    let displayDate: Date;
+                    if (view === "day") {
+                        displayDate = new Date(currentDate);
+                    } else {
+                        // Week view: get Monday of the current week
+                        const monday = new Date(currentDate);
+                        const dayOfWeek = monday.getDay();
+                        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                        monday.setDate(monday.getDate() + diffToMonday);
+
+                        // Add i days from Monday
+                        displayDate = new Date(monday);
+                        displayDate.setDate(monday.getDate() + i);
+                    }
+
+                    const isToday = formatDate(new Date()) === formatDate(displayDate);
+
+                    return (
+                        <div key={day} className="p-4 text-center border-r border-[var(--color-midnight-navy)]/5 last:border-r-0 bg-[var(--color-warm-white)]">
+                            <span className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-wider">{day}</span>
+                            <div className={cn(
+                                "text-lg font-medium mt-1",
+                                isToday ? "bg-[var(--color-midnight-navy)] text-white rounded-full w-8 h-8 flex items-center justify-center mx-auto" : "text-[var(--color-midnight-navy)]"
+                            )}>
+                                {displayDate.getDate()}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Time Grid */}
@@ -483,4 +508,3 @@ export function CalendarView({
         </div>
     );
 }
-

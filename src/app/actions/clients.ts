@@ -43,6 +43,7 @@ export async function updateClient(id: string, data: Partial<Client>) {
         })
         revalidatePath('/')
         revalidatePath('/mobile-admin')
+        revalidatePath(`/patients/${id}`)
         return { success: true, data: client }
     } catch (error) {
         console.error('Failed to update client:', error)
@@ -304,5 +305,92 @@ export async function restartClient(id: string) {
     } catch (error) {
         console.error('Failed to restart client:', error);
         return { success: false, error: 'Failed to restart counseling' };
+    }
+}
+
+// ============================================
+// Client Search for Scheduling
+// ============================================
+
+export async function searchClients(query: string) {
+    try {
+        if (!query || query.trim().length < 2) {
+            return { success: true, data: [] };
+        }
+
+        const searchTerm = query.trim();
+
+        const clients = await prisma.client.findMany({
+            where: {
+                terminatedAt: null, // Only active clients
+                OR: [
+                    { name: { contains: searchTerm, mode: 'insensitive' } },
+                    { id: { contains: searchTerm, mode: 'insensitive' } },
+                ]
+            },
+            select: {
+                id: true,
+                name: true,
+                condition: true,
+                status: true,
+                _count: {
+                    select: { sessions: true }
+                }
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 10 // Limit results
+        });
+
+        return { success: true, data: clients };
+    } catch (error) {
+        console.error('Failed to search clients:', error);
+        return { success: false, error: 'Failed to search clients' };
+    }
+}
+
+export async function addSessionForExistingClient(data: {
+    clientId: string
+    date: Date
+    time: string
+    location: string
+    type?: string
+    notes?: string
+}) {
+    try {
+        // Combine date and time
+        const [hours, minutes] = data.time.split(':').map(Number);
+        const sessionDate = new Date(data.date);
+        sessionDate.setHours(hours, minutes, 0, 0);
+
+        // Create session
+        const session = await prisma.session.create({
+            data: {
+                clientId: data.clientId,
+                date: sessionDate,
+                title: data.type || '정기 상담',
+                type: data.type || '상담',
+                location: data.location,
+                status: 'Scheduled',
+                notes: data.notes || null,
+                duration: 50
+            },
+            include: {
+                client: {
+                    select: {
+                        id: true,
+                        name: true,
+                        condition: true
+                    }
+                }
+            }
+        });
+
+        revalidatePath('/schedule');
+        revalidatePath(`/patients/${data.clientId}`);
+
+        return { success: true, data: session };
+    } catch (error) {
+        console.error('Failed to create session:', error);
+        return { success: false, error: 'Failed to create session' };
     }
 }

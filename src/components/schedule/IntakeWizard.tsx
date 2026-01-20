@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import { User, Activity, Calendar as CalendarIcon, Check, ChevronRight, X, Clock, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getLocations, addLocation } from "@/app/actions/locations";
+import { useEffect } from "react";
 
 interface IntakeWizardProps {
     isOpen: boolean;
@@ -19,10 +21,23 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
     // Form State
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState("");
+    const [concern, setConcern] = useState("불안 (Anxiety)");
+    const [notes, setNotes] = useState("");
     const [selectedDay, setSelectedDay] = useState("Mon");
     const [selectedTime, setSelectedTime] = useState("10");
     const [location, setLocation] = useState("");
-    const [savedLocations, setSavedLocations] = useState<string[]>(["Clinic Room A", "Telehealth", "Clinic Room B"]);
+    const [savedLocations, setSavedLocations] = useState<string[]>([]);
+
+    useEffect(() => {
+        const fetchLocs = async () => {
+            const res = await getLocations();
+            if (res.success && res.data) {
+                setSavedLocations(res.data.map((l: any) => l.name));
+            }
+        };
+        fetchLocs();
+    }, []);
 
     const dayMap: Record<string, number> = { "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4 };
 
@@ -43,18 +58,19 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
     const handleComplete = () => {
         if (isTimeSlotTaken) return;
 
-        const newAppointment = {
-            title: name,
-            type: "Intake",
-            time: parseInt(selectedTime),
-            day: dayMap[selectedDay] || 0,
-            duration: 1,
-            color: "bg-amber-100 text-amber-900 border-amber-200", // Intake color
-            phone: phone, // Store phone number if needed later
-            location: location
+        const intakeData = {
+            name,
+            phone,
+            email,
+            concern,
+            notes,
+            selectedDay,
+            selectedTime: parseInt(selectedTime),
+            location,
+            duration: 1
         };
 
-        onComplete(newAppointment);
+        onComplete(intakeData);
         onClose();
         // Reset form
         setStep(1);
@@ -149,7 +165,13 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">이메일 (Email)</label>
-                                        <input type="email" className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]" placeholder="user@example.com" />
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
+                                            placeholder="user@example.com"
+                                        />
                                     </div>
                                 </div>
                             </motion.div>
@@ -159,7 +181,11 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
                             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">호소 문제 (Primary Concern)</label>
-                                    <select className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]">
+                                    <select
+                                        value={concern}
+                                        onChange={(e) => setConcern(e.target.value)}
+                                        className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
+                                    >
                                         <option>불안 (Anxiety)</option>
                                         <option>우울 (Depression)</option>
                                         <option>대인관계 문제 (Relationship Issues)</option>
@@ -168,8 +194,12 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">초기 메모 (Initial Notes)</label>
-                                    <textarea className="w-full p-3 h-32 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)] resize-none" placeholder="내담자 특이사항..." />
+                                    <textarea
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        className="w-full p-3 h-32 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)] resize-none"
+                                        placeholder="내담자 특이사항..."
+                                    />
                                 </div>
                             </motion.div>
                         )}
@@ -216,9 +246,12 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
                                     <LocationInput
                                         value={location}
                                         onChange={setLocation}
-                                        onSave={(loc) => {
+                                        onSave={async (loc) => {
                                             if (!savedLocations.includes(loc)) {
-                                                setSavedLocations([...savedLocations, loc]);
+                                                const res = await addLocation(loc);
+                                                if (res.success) {
+                                                    setSavedLocations([...savedLocations, loc]);
+                                                }
                                             }
                                         }}
                                         suggestions={savedLocations}
@@ -293,7 +326,7 @@ function LocationInput({ value, onChange, onSave, suggestions }: { value: string
     const [isOpen, setIsOpen] = useState(false);
 
     // Filter suggestions based on input (excluding the '@' prefix if user typed it)
-    const searchTerm = value.startsWith('@') ? value.slice(1) : value;
+    const searchTerm = value;
     const filtered = suggestions.filter(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
@@ -308,17 +341,14 @@ function LocationInput({ value, onChange, onSave, suggestions }: { value: string
                 onBlur={() => {
                     // Save on blur if it's a new value and not empty
                     if (value.trim()) {
-                        // Simple heuristic: if it starts with @, strip it for storage?
-                        // Or just store as is. Let's store clean values.
-                        const clean = value.startsWith('@') ? value.slice(1).trim() : value.trim();
-                        if (clean) onSave(clean);
+                        onSave(value.trim());
                     }
                     // Delay hiding suggestions to allow click
                     setTimeout(() => setIsOpen(false), 200);
                 }}
                 onFocus={() => setIsOpen(true)}
                 className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)] focus:outline-none focus:border-[var(--color-midnight-navy)] transition-colors"
-                placeholder="@ Clinic Room A"
+                placeholder="상담 장소를 입력하거나 선택하세요"
             />
             {isOpen && filtered.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-[var(--color-midnight-navy)]/10 max-h-48 overflow-y-auto z-20">
@@ -327,12 +357,12 @@ function LocationInput({ value, onChange, onSave, suggestions }: { value: string
                             key={s}
                             onMouseDown={(e) => {
                                 e.preventDefault(); // Prevent blur
-                                onChange(`@ ${s}`);
+                                onChange(s);
                                 setIsOpen(false);
                             }}
                             className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-midnight-navy)]/5 transition-colors text-[var(--color-midnight-navy)]"
                         >
-                            @ {s}
+                            {s}
                         </button>
                     ))}
                 </div>

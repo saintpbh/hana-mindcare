@@ -10,6 +10,9 @@ import { EditAppointmentModal } from "@/components/schedule/EditAppointmentModal
 import { ScheduleDetailPanel } from "@/components/schedule/ScheduleDetailPanel";
 import { SessionListPanel } from "@/components/schedule/SessionListPanel";
 import { DayViewSidebar } from "@/components/schedule/DayViewSidebar";
+import { ClientSelectModal } from "@/components/schedule/ClientSelectModal";
+import { ExistingClientSearch } from "@/components/schedule/ExistingClientSearch";
+import { QuickScheduleModal } from "@/components/schedule/QuickScheduleModal";
 
 import { getClients } from "@/app/actions/clients";
 type Client = any;
@@ -17,6 +20,10 @@ import { useEffect } from "react";
 
 export default function SchedulePage() {
     const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+    const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
+    const [isExistingSearchOpen, setIsExistingSearchOpen] = useState(false);
+    const [isQuickScheduleOpen, setIsQuickScheduleOpen] = useState(false);
+    const [selectedClient, setSelectedClient] = useState<any>(null);
     const [editingAppointment, setEditingAppointment] = useState<any>(null);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -54,18 +61,30 @@ export default function SchedulePage() {
 
     const handlePrev = () => {
         const newDate = new Date(currentDate);
-        if (currentView === "month") newDate.setMonth(newDate.getMonth() - 1);
-        if (currentView === "week") newDate.setDate(newDate.getDate() - 7);
-        if (currentView === "day") newDate.setDate(newDate.getDate() - 1);
+        if (currentView === "week") {
+            newDate.setDate(newDate.getDate() - 7);
+        } else if (currentView === "month") {
+            newDate.setMonth(newDate.getMonth() - 1);
+        } else {
+            newDate.setDate(newDate.getDate() - 1);
+        }
         setCurrentDate(newDate);
     };
 
     const handleNext = () => {
         const newDate = new Date(currentDate);
-        if (currentView === "month") newDate.setMonth(newDate.getMonth() + 1);
-        if (currentView === "week") newDate.setDate(newDate.getDate() + 7);
-        if (currentView === "day") newDate.setDate(newDate.getDate() + 1);
+        if (currentView === "week") {
+            newDate.setDate(newDate.getDate() + 7);
+        } else if (currentView === "month") {
+            newDate.setMonth(newDate.getMonth() + 1);
+        } else {
+            newDate.setDate(newDate.getDate() + 1);
+        }
         setCurrentDate(newDate);
+    };
+
+    const goToToday = () => {
+        setCurrentDate(new Date());
     };
 
     useEffect(() => {
@@ -94,6 +113,7 @@ export default function SchedulePage() {
                         duration: 1,
                         color,
                         location: client.location,
+                        meetingLink: client.sessions?.[0]?.meetingLink, // Get link from most recent session
                         rawDate: sessionDate.toISOString().split('T')[0], // Ensure YYYY-MM-DD format
                         history: client.sessions ? client.sessions.map((s: any) => ({
                             id: s.id,
@@ -167,24 +187,33 @@ export default function SchedulePage() {
                         ))}
                     </div>
 
-                    <div className="flex items-center bg-white rounded-lg border border-[var(--color-midnight-navy)]/10 p-1 shadow-sm">
-                        <button onClick={handlePrev} className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60">
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="px-3 text-sm font-medium text-[var(--color-midnight-navy)] min-w-[140px] text-center">
-                            {formatHeaderDate()}
-                        </span>
-                        <button onClick={handleNext} className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60">
-                            <ChevronRight className="w-4 h-4" />
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center bg-white rounded-lg border border-[var(--color-midnight-navy)]/10 p-1 shadow-sm">
+                            <button onClick={handlePrev} className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60" title="이전">
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="px-3 text-sm font-medium text-[var(--color-midnight-navy)] min-w-[140px] text-center">
+                                {formatHeaderDate()}
+                            </span>
+                            <button onClick={handleNext} className="p-1.5 hover:bg-[var(--color-midnight-navy)]/5 rounded-md text-[var(--color-midnight-navy)]/60" title="다음">
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={goToToday}
+                            className="h-9 px-4 rounded-lg bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] text-xs font-medium hover:bg-[var(--color-midnight-navy)]/5 transition-colors shadow-sm"
+                        >
+                            오늘
                         </button>
                     </div>
 
                     <button
-                        onClick={() => setIsIntakeOpen(true)}
-                        className="h-10 px-5 rounded-full bg-[var(--color-midnight-navy)] text-white text-sm font-medium hover:bg-[var(--color-midnight-navy)]/90 transition-colors flex items-center gap-2 shadow-lg shadow-[var(--color-midnight-navy)]/20"
+                        onClick={() => setIsSelectModalOpen(true)}
+                        className="flex items-center gap-2 h-10 px-6 rounded-lg bg-[var(--color-midnight-navy)] text-white hover:bg-[var(--color-midnight-navy)]/90 transition-colors shadow-md shadow-[var(--color-midnight-navy)]/20"
                     >
-                        <Plus className="w-4 h-4" />
-                        신규 내담자 접수 (Intake)
+                        <Plus className="w-5 h-5" />
+                        <span className="text-sm font-medium">일정 추가</span>
                     </button>
                 </div>
             </header>
@@ -257,6 +286,41 @@ export default function SchedulePage() {
                 onSave={handleUpdateAppointment}
                 onDelete={handleDeleteAppointment}
                 appointment={editingAppointment}
+            />
+
+            {/* New Modals for Existing Client Scheduling */}
+            <ClientSelectModal
+                isOpen={isSelectModalOpen}
+                onClose={() => setIsSelectModalOpen(false)}
+                onSelectNew={() => {
+                    setIsSelectModalOpen(false);
+                    setIsIntakeOpen(true);
+                }}
+                onSelectExisting={() => {
+                    setIsSelectModalOpen(false);
+                    setIsExistingSearchOpen(true);
+                }}
+            />
+
+            <ExistingClientSearch
+                isOpen={isExistingSearchOpen}
+                onClose={() => setIsExistingSearchOpen(false)}
+                onSelectClient={(client) => {
+                    setSelectedClient(client);
+                    setIsExistingSearchOpen(false);
+                    setIsQuickScheduleOpen(true);
+                }}
+            />
+
+            <QuickScheduleModal
+                isOpen={isQuickScheduleOpen}
+                onClose={() => {
+                    setIsQuickScheduleOpen(false);
+                    setSelectedClient(null);
+                }}
+                client={selectedClient}
+                onComplete={handleAddAppointment}
+                existingAppointments={appointments}
             />
         </div>
     );
