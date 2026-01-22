@@ -3,7 +3,9 @@ import { useState, useRef, useEffect } from "react";
 import { Save, AlertCircle, CheckCircle, Printer, Sparkles } from "lucide-react";
 import { CounselingLogData, upsertCounselingLog, getSessionDetails } from "@/app/actions/sessions";
 import { generateCounselingLog } from "@/app/actions/ai";
+import { generateCounselingLog } from "@/app/actions/ai";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface CounselingLogFormProps {
     sessionId: string;
@@ -41,6 +43,7 @@ const AutoResizeTextarea = ({ value, onChange, disabled, placeholder, className 
 };
 
 export function CounselingLogForm({ sessionId, initialData }: CounselingLogFormProps) {
+    const { confirm } = useConfirm();
     const [formData, setFormData] = useState<CounselingLogData>(initialData || {
         subjective: "",
         objective: "",
@@ -58,7 +61,11 @@ export function CounselingLogForm({ sessionId, initialData }: CounselingLogFormP
 
     const handleSave = async (targetStatus: "DRAFT" | "FINAL") => {
         if (targetStatus === "FINAL") {
-            if (!confirm("상담일지를 제출하시겠습니까? 제출 후에는 수정이 어려울 수 있습니다.")) return;
+            if (!await confirm("상담일지를 제출하시겠습니까? 제출 후에는 수정이 어려울 수 있습니다.", {
+                title: "상담일지 제출",
+                confirmText: "제출하기",
+                variant: "info"
+            })) return;
         }
 
         setStatus("saving");
@@ -87,7 +94,11 @@ export function CounselingLogForm({ sessionId, initialData }: CounselingLogFormP
             return;
         }
 
-        if (!confirm("현재 작성된 내용이 AI 생성 내용으로 덮어씌워질 수 있습니다. 계속하시겠습니까?")) return;
+        if (!await confirm("현재 작성된 내용이 AI 생성 내용으로 덮어씌워질 수 있습니다. 계속하시겠습니까?", {
+            title: "AI 내용 적용",
+            confirmText: "적용하기",
+            variant: "default"
+        })) return;
 
         setStatus("generating");
 

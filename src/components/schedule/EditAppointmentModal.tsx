@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { X, Clock, Calendar, MapPin, User, Tag, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface EditAppointmentModalProps {
     isOpen: boolean;
@@ -14,6 +16,7 @@ interface EditAppointmentModalProps {
 }
 
 export function EditAppointmentModal({ isOpen, onClose, onSave, onDelete, appointment }: EditAppointmentModalProps) {
+    const { confirm } = useConfirm();
     const [formData, setFormData] = useState<any>(null);
 
     useEffect(() => {
@@ -33,8 +36,12 @@ export function EditAppointmentModal({ isOpen, onClose, onSave, onDelete, appoin
         onClose();
     };
 
-    const handleDelete = () => {
-        if (confirm("정말로 이 상담 세션을 취소하시겠습니까?")) {
+    const handleDelete = async () => {
+        if (await confirm("정말로 이 상담 세션을 취소하시겠습니까?", {
+            title: "세션 취소",
+            confirmText: "취소하기",
+            variant: "destructive"
+        })) {
             onDelete(formData.id);
             onClose();
         }

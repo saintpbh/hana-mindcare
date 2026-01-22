@@ -1,8 +1,10 @@
 'use server';
 
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 
 export async function getDashboardData() {
+    const session = await requireAuth();
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
 
@@ -12,6 +14,7 @@ export async function getDashboardData() {
         // - Intake clients (tag based)
         const briefingClients = await prisma.client.findMany({
             where: {
+                accountId: session.accountId,
                 OR: [
                     { status: { in: ['crisis', 'attention'] } },
                     { tags: { has: 'intake' } }
@@ -24,6 +27,7 @@ export async function getDashboardData() {
         // 2. Today's Flow Data
         const todaySessions = await prisma.client.findMany({
             where: {
+                accountId: session.accountId,
                 nextSession: todayStr,
                 isSessionCanceled: false
             },
@@ -32,19 +36,27 @@ export async function getDashboardData() {
 
         // 3. Recent Signals (Aggregated from Sessions, Moods, and Homework)
         const recentSessions = await prisma.session.findMany({
+            where: { accountId: session.accountId },
             take: 3,
             orderBy: { date: 'desc' },
             include: { client: true }
         });
 
         const recentMoods = await prisma.mood.findMany({
+            where: {
+                client: { accountId: session.accountId }
+            },
             take: 2,
             orderBy: { createdAt: 'desc' },
             include: { client: true }
         });
 
         const recentHomework = await prisma.prescription.findMany({
-            where: { isCompleted: true, type: 'homework' },
+            where: {
+                isCompleted: true,
+                type: 'homework',
+                client: { accountId: session.accountId }
+            },
             take: 2,
             orderBy: { createdAt: 'desc' },
             include: { client: true }

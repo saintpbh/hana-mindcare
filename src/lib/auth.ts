@@ -2,12 +2,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "./auth/config";
 import { hasPermission, Permission } from "./auth/permissions";
 import { MemberRole } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 export async function requireAuth() {
     const session = await getServerSession(authOptions);
 
     if (!session) {
-        throw new Error("인증이 필요합니다.");
+        redirect("/login");
     }
 
     return session;

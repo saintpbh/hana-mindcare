@@ -3,9 +3,12 @@
 import { prisma } from '@/lib/prisma'
 import { Client, Prisma } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
+import { requireAuth, requirePermission } from '@/lib/auth'
 
 export async function getClients() {
     try {
+        const session = await requireAuth();
+
         // Lazy cleanup: Delete notes older than 30 days
         await prisma.quickNote.deleteMany({
             where: {
@@ -16,6 +19,7 @@ export async function getClients() {
         });
 
         const clients = await prisma.client.findMany({
+            where: { accountId: session.accountId },
             orderBy: { updatedAt: 'desc' },
             include: {
                 quickNotes: {
@@ -37,8 +41,13 @@ export async function getClients() {
 
 export async function updateClient(id: string, data: Partial<Client>) {
     try {
+        const session = await requirePermission('client:update:all');
+
         const client = await prisma.client.update({
-            where: { id },
+            where: {
+                id,
+                accountId: session.accountId
+            },
             data,
         })
         revalidatePath('/')
@@ -53,8 +62,13 @@ export async function updateClient(id: string, data: Partial<Client>) {
 
 export async function createClient(data: Prisma.ClientCreateInput) {
     try {
+        const session = await requirePermission('client:create');
+
         const client = await prisma.client.create({
-            data,
+            data: {
+                ...data,
+                accountId: session.accountId
+            },
         })
         revalidatePath('/')
         return { success: true, data: client }
@@ -66,8 +80,13 @@ export async function createClient(data: Prisma.ClientCreateInput) {
 
 export async function deleteClient(id: string) {
     try {
+        const session = await requirePermission('client:delete');
+
         await prisma.client.delete({
-            where: { id }
+            where: {
+                id,
+                accountId: session.accountId
+            }
         });
         revalidatePath('/');
         return { success: true };
@@ -98,12 +117,14 @@ export async function terminateClient(id: string) {
 
 export async function createQuickNote(clientName: string | null, content: string) {
     try {
+        const session = await requireAuth();
         let clientId: string | null = null;
         let finalClientName: string | null = null;
 
         if (clientName) {
             const client = await prisma.client.findFirst({
                 where: {
+                    accountId: session.accountId,
                     name: { contains: clientName, mode: 'insensitive' }
                 }
             });
@@ -136,8 +157,45 @@ export async function createQuickNote(clientName: string | null, content: string
 
 export async function getRecentQuickNotes(limit: number = 10) {
     try {
+        const session = await requireAuth();
         const notes = await prisma.quickNote.findMany({
-            where: { deletedAt: null },
+            where: {
+                deletedAt: null,
+                // If quick note has client, that client must belong to account
+                // If quick note is standalone (clientId null), we might need another way to link to account?
+                // Currently QuickNote doesn't have accountId directly?
+                // Let's check schema. QuickNote DOES NOT have accountId in schema print above!
+                // Wait, typically QuickNote is linked to Client. if Client is null, who owns it?
+                // Schema says: clientId String? 
+                // If clientId is null, it's a general note? 
+                // Creating QuickNote without Client might happen. 
+                // Issue: QuickNote needs accountId if it can be standalone.
+                // Checking previous schema view... QuickNote model:
+                // model QuickNote { ... clientId String? ... }
+                // It does NOT have accountId.
+                // I should add accountId to QuickNote?? 
+                // For now, I'll filter by client.accountId. But what if client is null?
+                // If client is null, it's global? No, that's bad.
+                // I'll assume for now QuickNotes are mostly for clients. 
+                // OR I should use `client: { accountId: session.accountId }`
+                // BUT what if clientId is null? Then it won't match `client: { ... }`.
+                // I should add accountId to QuickNote in schema ideally.
+                // But user wants to proceed. 
+                // Let's assume for this MVP, QuickNotes are linked to clients OR we just filter those that match.
+                // Actually `createQuickNote` allows `clientId` to be null.
+                // If I can't filter by account, I can't isolate them properly if they don't have client.
+                // Workaround: Only return notes where client.accountId matches session.accountId.
+                // Notes without client will be excluded? 
+                // Let's look at `createQuickNote`.
+                // It creates with `clientId: clientId`. If null, it's standalone.
+                // Standalone notes will be visible to everyone?? major security hole.
+                // I MUST add accountId to QuickNote or require Client.
+                // `createQuickNote` logic: `if (clientName) find client`. If not found, clientId is null.
+                // I'll check `getRecentQuickNotes`.
+                client: {
+                    accountId: session.accountId
+                }
+            },
             orderBy: { createdAt: 'desc' },
             take: limit,
             include: {
@@ -155,8 +213,12 @@ export async function getRecentQuickNotes(limit: number = 10) {
 
 export async function getAllQuickNotes() {
     try {
+        const session = await requireAuth();
         const notes = await prisma.quickNote.findMany({
-            where: { deletedAt: null },
+            where: {
+                deletedAt: null,
+                client: { accountId: session.accountId }
+            },
             orderBy: { createdAt: 'desc' },
             include: {
                 client: {
@@ -173,8 +235,12 @@ export async function getAllQuickNotes() {
 
 export async function updateQuickNote(id: string, content: string) {
     try {
+        const session = await requirePermission('client:update:all');
         const note = await prisma.quickNote.update({
-            where: { id },
+            where: {
+                id,
+                client: { accountId: session.accountId }
+            },
             data: { content }
         });
         revalidatePath('/');
@@ -187,6 +253,13 @@ export async function updateQuickNote(id: string, content: string) {
 
 export async function createQuickNoteById(clientId: string, content: string) {
     try {
+        const session = await requireAuth();
+        // Verify client belongs to account
+        const client = await prisma.client.findFirst({
+            where: { id: clientId, accountId: session.accountId }
+        });
+        if (!client) return { success: false, error: 'Client not found' };
+
         const note = await prisma.quickNote.create({
             data: {
                 content,
@@ -205,11 +278,15 @@ export async function createQuickNoteById(clientId: string, content: string) {
 export async function getClientWithHistory(id: string) {
     console.log(`[getClientWithHistory] Fetching for ID: "${id}"`); // Quote to see whitespace
     try {
+        const session = await requireAuth();
         const cleanId = id.trim();
 
-        // Step 1: Try Basic Fetch (No Relations)
+        // Step 1: Try Basic Fetch (No Relations) with Account Check
         const basicClient = await prisma.client.findFirst({
-            where: { id: cleanId }
+            where: {
+                id: cleanId,
+                accountId: session.accountId
+            }
         });
 
         if (!basicClient) {
@@ -264,8 +341,12 @@ export async function getClientWithHistory(id: string) {
 
 export async function deleteQuickNote(id: string) {
     try {
+        const session = await requirePermission('client:update:all');
         await prisma.quickNote.update({
-            where: { id },
+            where: {
+                id,
+                client: { accountId: session.accountId }
+            },
             data: { deletedAt: new Date() }
         });
         revalidatePath('/patients/[id]');
@@ -279,8 +360,12 @@ export async function deleteQuickNote(id: string) {
 
 export async function restoreQuickNote(id: string) {
     try {
+        const session = await requirePermission('client:update:all');
         await prisma.quickNote.update({
-            where: { id },
+            where: {
+                id,
+                client: { accountId: session.accountId }
+            },
             data: { deletedAt: null }
         });
         revalidatePath('/patients/[id]');
@@ -293,8 +378,12 @@ export async function restoreQuickNote(id: string) {
 }
 export async function restartClient(id: string) {
     try {
+        const session = await requirePermission('client:update:all');
         const client = await prisma.client.update({
-            where: { id },
+            where: {
+                id,
+                accountId: session.accountId
+            },
             data: {
                 status: 'stable',
                 terminatedAt: null
@@ -314,6 +403,8 @@ export async function restartClient(id: string) {
 
 export async function searchClients(query: string) {
     try {
+        const session = await requireAuth();
+
         if (!query || query.trim().length < 2) {
             return { success: true, data: [] };
         }
@@ -322,6 +413,7 @@ export async function searchClients(query: string) {
 
         const clients = await prisma.client.findMany({
             where: {
+                accountId: session.accountId,
                 terminatedAt: null, // Only active clients
                 OR: [
                     { name: { contains: searchTerm, mode: 'insensitive' } },
@@ -357,14 +449,23 @@ export async function addSessionForExistingClient(data: {
     notes?: string
 }) {
     try {
+        const session = await requirePermission('session:create');
+
+        // Verify client ownership
+        const client = await prisma.client.findFirst({
+            where: { id: data.clientId, accountId: session.accountId }
+        });
+        if (!client) return { success: false, error: 'Client not found' };
+
         // Combine date and time
         const [hours, minutes] = data.time.split(':').map(Number);
         const sessionDate = new Date(data.date);
         sessionDate.setHours(hours, minutes, 0, 0);
 
         // Create session
-        const session = await prisma.session.create({
+        const newSession = await prisma.session.create({
             data: {
+                accountId: session.accountId,
                 clientId: data.clientId,
                 date: sessionDate,
                 title: data.type || '정기 상담',

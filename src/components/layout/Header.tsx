@@ -4,8 +4,13 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { useAuth } from "@/hooks/useAuth";
+import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export function Header() {
+    const { user, isAuthenticated, isLoading } = useAuth();
+    const router = useRouter();
     const { role, setRole } = useUserRole();
     const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -21,7 +26,7 @@ export function Header() {
             <div className="flex items-center gap-6">
                 <div>
                     <h1 className="text-2xl font-serif text-[var(--color-midnight-navy)]">
-                        Good Morning, Dr. Park
+                        {isLoading ? "Loading..." : `Good Morning, ${user?.name || "Member"}`}
                     </h1>
                     <p className="text-sm text-neutral-500">You have 3 sessions today</p>
                 </div>
@@ -141,10 +146,34 @@ export function Header() {
                 {/* Notification Center */}
                 <NotificationCenter userId="demo-user-id" />
 
-                <div className="w-10 h-10 rounded-full bg-neutral-200 border-2 border-white shadow-sm overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-midnight-navy)]/20 transition-all">
-                    {/* Placeholder for user avatar */}
-                    <div className="w-full h-full bg-[var(--color-midnight-navy)] flex items-center justify-center text-white font-medium text-sm">
-                        DP
+                <div className="relative group">
+                    <div className="w-10 h-10 rounded-full bg-neutral-200 border-2 border-white shadow-sm overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-midnight-navy)]/20 transition-all">
+                        {user?.profileImage ? (
+                            <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-[var(--color-midnight-navy)] flex items-center justify-center text-white font-medium text-sm">
+                                {user?.name?.[0] || "U"}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Profile Dropdown */}
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-neutral-100 p-1 z-50 flex flex-col invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all origin-top-right">
+                        <div className="px-4 py-3 border-b border-neutral-50">
+                            <div className="font-medium text-sm text-[var(--color-midnight-navy)]">{user?.name}</div>
+                            <div className="text-xs text-neutral-400 truncate">{user?.email}</div>
+                        </div>
+                        <Link href="/settings" className="px-4 py-2.5 text-sm text-neutral-600 hover:bg-neutral-50 rounded-lg flex items-center gap-2">
+                            <Settings className="w-4 h-4" />
+                            설정
+                        </Link>
+                        <button
+                            onClick={() => signOut({ callbackUrl: '/login' })}
+                            className="px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2 w-full text-left"
+                        >
+                            <LogOut className="w-4 h-4" />
+                            로그아웃
+                        </button>
                     </div>
                 </div>
             </div>

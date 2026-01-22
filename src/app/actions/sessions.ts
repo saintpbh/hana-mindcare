@@ -2,11 +2,18 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { requireAuth, requirePermission } from '@/lib/auth'
 
 export async function getSessionDetails(sessionId: string) {
     try {
-        const session = await prisma.session.findUnique({
-            where: { id: sessionId },
+        const sessionAuth = await requireAuth();
+
+        // Use findFirst with accountId to ensure isolation
+        const session = await prisma.session.findFirst({
+            where: {
+                id: sessionId,
+                accountId: sessionAuth.accountId
+            },
             include: {
                 client: true,
                 counselingLog: true
@@ -26,6 +33,15 @@ export async function getSessionDetails(sessionId: string) {
 
 export async function updateTranscript(sessionId: string, transcript: string) {
     try {
+        const sessionAuth = await requirePermission('session:update:own');
+
+        // Verify ownership before update
+        const existingSession = await prisma.session.findFirst({
+            where: { id: sessionId, accountId: sessionAuth.accountId }
+        });
+
+        if (!existingSession) return { success: false, error: 'Session not found' };
+
         const session = await prisma.session.update({
             where: { id: sessionId },
             data: { transcript }
@@ -49,6 +65,15 @@ export interface CounselingLogData {
 
 export async function upsertCounselingLog(sessionId: string, data: CounselingLogData) {
     try {
+        const sessionAuth = await requirePermission('session:update:own');
+
+        // Verify session ownership
+        const targetSession = await prisma.session.findFirst({
+            where: { id: sessionId, accountId: sessionAuth.accountId }
+        });
+
+        if (!targetSession) return { success: false, error: 'Session not found' };
+
         // Check if log exists
         const existingLog = await prisma.counselingLog.findUnique({
             where: { sessionId }
@@ -99,7 +124,14 @@ export async function upsertCounselingLog(sessionId: string, data: CounselingLog
 
 export async function getCounselingLogs() {
     try {
+        const sessionAuth = await requireAuth();
+
         const logs = await prisma.counselingLog.findMany({
+            where: {
+                session: {
+                    accountId: sessionAuth.accountId
+                }
+            },
             include: {
                 session: {
                     include: {
@@ -134,8 +166,11 @@ export async function createSession(data: {
     location?: string;
 }) {
     try {
+        const sessionAuth = await requirePermission('session:create');
+
         const session = await prisma.session.create({
             data: {
+                accountId: sessionAuth.accountId, // Assign to current account
                 clientId: data.clientId,
                 counselorId: data.counselorId,
                 title: data.title,
@@ -164,6 +199,15 @@ export async function createSession(data: {
 
 export async function updateSessionNotes(sessionId: string, notes: string) {
     try {
+        const sessionAuth = await requirePermission('session:update:own');
+
+        // Verify ownership
+        const existingSession = await prisma.session.findFirst({
+            where: { id: sessionId, accountId: sessionAuth.accountId }
+        });
+
+        if (!existingSession) return { success: false, error: 'Session not found' };
+
         const session = await prisma.session.update({
             where: { id: sessionId },
             data: { notes }

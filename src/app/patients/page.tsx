@@ -11,8 +11,10 @@ import { sendSMS } from "@/services/smsService";
 import { usePersistence } from "@/hooks/usePersistence"; // New import
 import { NewClientModal } from "@/components/patients/NewClientModal";
 import { IntakeList, type IntakeRequest } from "@/components/patients/IntakeList"; // Import IntakeList
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 export default function PatientsPage() {
+    const { confirm } = useConfirm();
     const { clients, isLoaded, addClient, restartClient } = usePersistence();
     const [searchTerm, setSearchTerm] = useState("");
     const [activeFilter, setActiveFilter] = useState<"intake" | "all" | "attention" | "crisis" | "upcoming" | "terminated">("upcoming");
@@ -69,8 +71,12 @@ export default function PatientsPage() {
         setIsModalOpen(true);
     };
 
-    const handleRejectIntake = (id: number) => {
-        if (confirm("정말 이 접수 요청을 반려하시겠습니까?")) {
+    const handleRejectIntake = async (id: number) => {
+        if (await confirm("정말 이 접수 요청을 반려하시겠습니까?", {
+            title: "요청 반려",
+            confirmText: "반려하기",
+            variant: "destructive"
+        })) {
             setIntakeRequests(prev => prev.filter(req => req.id !== id));
         }
     };

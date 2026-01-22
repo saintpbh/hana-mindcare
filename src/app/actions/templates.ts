@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth';
 
 type TemplateContent = {
     // SOAP 노트
@@ -29,8 +30,11 @@ export async function createTemplate(data: {
     isPublic?: boolean;
 }) {
     try {
+        const session = await requireAuth();
+
         const template = await prisma.template.create({
             data: {
+                accountId: session.accountId,
                 userId: data.userId,
                 type: data.type,
                 name: data.name,
@@ -52,8 +56,11 @@ export async function createTemplate(data: {
  */
 export async function getTemplates(userId: string, type?: string, category?: string) {
     try {
+        const session = await requireAuth();
+
         const templates = await prisma.template.findMany({
             where: {
+                accountId: session.accountId,
                 OR: [
                     { userId },
                     { isPublic: true },
@@ -88,8 +95,13 @@ export async function updateTemplate(
     }
 ) {
     try {
+        const session = await requireAuth();
+
         const template = await prisma.template.update({
-            where: { id },
+            where: {
+                id,
+                accountId: session.accountId
+            },
             data: {
                 ...(data.name && { name: data.name }),
                 ...(data.category !== undefined && { category: data.category }),
@@ -110,8 +122,13 @@ export async function updateTemplate(
  */
 export async function deleteTemplate(id: string) {
     try {
+        const session = await requireAuth();
+
         await prisma.template.delete({
-            where: { id },
+            where: {
+                id,
+                accountId: session.accountId
+            },
         });
 
         return { success: true };
@@ -126,8 +143,13 @@ export async function deleteTemplate(id: string) {
  */
 export async function incrementTemplateUsage(id: string) {
     try {
+        const session = await requireAuth();
+
         await prisma.template.update({
-            where: { id },
+            where: {
+                id,
+                accountId: session.accountId
+            },
             data: {
                 usageCount: { increment: 1 },
             },
@@ -145,8 +167,13 @@ export async function incrementTemplateUsage(id: string) {
  */
 export async function toggleTemplateFavorite(id: string, isFavorite: boolean) {
     try {
+        const session = await requireAuth();
+
         await prisma.template.update({
-            where: { id },
+            where: {
+                id,
+                accountId: session.accountId
+            },
             data: { isFavorite },
         });
 

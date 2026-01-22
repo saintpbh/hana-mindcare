@@ -5,7 +5,9 @@ import { X, Search, Trash2, Edit2, Check, User, Clock, AlertCircle } from "lucid
 import { getAllQuickNotes, deleteQuickNote, updateQuickNote } from "@/app/actions/clients";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface ManageQuickNotesModalProps {
     isOpen: boolean;
@@ -13,6 +15,7 @@ interface ManageQuickNotesModalProps {
 }
 
 export function ManageQuickNotesModal({ isOpen, onClose }: ManageQuickNotesModalProps) {
+    const { confirm } = useConfirm();
     const [notes, setNotes] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -35,7 +38,11 @@ export function ManageQuickNotesModal({ isOpen, onClose }: ManageQuickNotesModal
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("정말로 이 메모를 삭제하시겠습니까?")) {
+        if (await confirm("정말로 이 메모를 삭제하시겠습니까?", {
+            title: "메모 삭제",
+            confirmText: "삭제",
+            variant: "destructive"
+        })) {
             const res = await deleteQuickNote(id);
             if (res.success) {
                 setNotes(prev => prev.filter(n => n.id !== id));

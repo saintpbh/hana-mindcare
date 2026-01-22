@@ -6,6 +6,7 @@ import { ko } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, MessageSquare, RefreshCw, X, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getMonthlySchedule, type CalendarEvent } from '@/app/actions/calendar';
+import { useConfirm } from "@/contexts/ConfirmContext";
 import { updateClient } from '@/app/actions/clients';
 import { MessageModal } from '@/components/patients/MessageModal';
 import { ScheduleModal } from '@/components/patients/ScheduleModal';
@@ -26,6 +27,7 @@ export function SmartCalendar({
     refreshKey?: number;
 }) {
     const router = useRouter();
+    const { confirm } = useConfirm();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -267,7 +269,11 @@ export function SmartCalendar({
                                         e.stopPropagation();
 
                                         if (action === 'cancel' || action === 'noshow') {
-                                            if (confirm(`${action === 'noshow' ? '노쇼' : '취소'} 처리하시겠습니까?`)) {
+                                            if (await confirm(`${action === 'noshow' ? '노쇼' : '취소'} 처리하시겠습니까?`, {
+                                                title: action === 'noshow' ? "노쇼 처리" : "상담 취소",
+                                                confirmText: "확인",
+                                                variant: "destructive"
+                                            })) {
                                                 await updateClient(event.clientId!, { isSessionCanceled: true });
                                                 fetchEvents(); // Refresh
                                             }

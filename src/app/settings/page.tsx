@@ -25,6 +25,7 @@ import { saveSetting, getSetting } from "@/app/actions/settings";
 import { useBranding } from "@/contexts/BrandingContext";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState("account");
@@ -656,6 +657,7 @@ function AISettings() {
 }
 
 function LocationManagement() {
+    const { confirm } = useConfirm();
     const [locations, setLocations] = useState<any[]>([]);
     const [newLocation, setNewLocation] = useState("");
     const [isLoading, setIsLoading] = useState(true);
@@ -684,7 +686,9 @@ function LocationManagement() {
     };
 
     const handleDelete = async (id: string, name: string) => {
-        if (confirm(`'${name}' 장소를 삭제하시겠습니까?`)) {
+        if (await confirm(`'${name}' 장소를 삭제하시겠습니까?`, {
+            variant: "destructive"
+        })) {
             const res = await deleteLocation(id);
             if (res.success) {
                 fetchLocations();

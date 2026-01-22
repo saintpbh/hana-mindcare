@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function SessionConclusionModal({
     isOpen,
     onClose,
-    clientName = "김하나",
+    clientName = "내담자",
     onWriteReport,
     onScheduleNext,
     onDownloadTranscript

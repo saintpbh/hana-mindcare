@@ -7,12 +7,15 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { type Client } from "@prisma/client";
 
+import { useAuth } from "@/hooks/useAuth";
+
 interface BriefingProps {
     className?: string;
     clients: Client[];
 }
 
 export function IntelligentBriefing({ className, clients }: BriefingProps) {
+    const { user } = useAuth();
     const [greeting, setGreeting] = useState("안녕하세요");
     const [currentTime, setCurrentTime] = useState("");
     const [activeInsightIndex, setActiveInsightIndex] = useState(0);
@@ -76,7 +79,7 @@ export function IntelligentBriefing({ className, clients }: BriefingProps) {
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-[var(--color-midnight-navy)] leading-tight">
-                        {greeting}, 김하나 선생님.
+                        {greeting}, {user?.name || "선생님"}.
                     </h2>
                     <p className="text-sm text-[var(--color-midnight-navy)]/40 flex items-center gap-1.5 mt-0.5 font-medium">
                         <Clock className="w-3.5 h-3.5" />

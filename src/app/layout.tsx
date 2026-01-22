@@ -4,6 +4,7 @@ import "./globals.css";
 import { UserRoleProvider } from "@/contexts/UserRoleContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ConfirmProvider } from "@/contexts/ConfirmContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,11 +32,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <UserRoleProvider>
-            <BrandingProvider>
-              {children}
-            </BrandingProvider>
-          </UserRoleProvider>
+          <ConfirmProvider>
+            <UserRoleProvider>
+              <BrandingProvider>
+                {children}
+              </BrandingProvider>
+            </UserRoleProvider>
+          </ConfirmProvider>
         </AuthProvider>
       </body>
     </html>

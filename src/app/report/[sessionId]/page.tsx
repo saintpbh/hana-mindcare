@@ -17,7 +17,7 @@ export default function SessionReportPage({ params }: { params: Promise<{ sessio
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
     // Mock Data based on sessionId (In real app, fetch from localized store/API)
-    const clientName = "김하나";
+    const clientName = "박지은";
     const sessionDate = new Date(); // Today
 
     const mockTranscript = `

@@ -14,6 +14,7 @@ import { getClientWithHistory, updateClient, terminateClient, deleteQuickNote, r
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/contexts/ConfirmContext";
 // import { type Client, type Session } from "@prisma/client";
 type Client = any;
 type Session = any;
@@ -30,6 +31,7 @@ export const dynamic = 'force-dynamic';
 export default function PatientPage() {
     const params = useParams();
     const router = useRouter();
+    const { confirm } = useConfirm();
     const [client, setClient] = useState<ClientWithSessions | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
@@ -250,7 +252,7 @@ export default function PatientPage() {
                                             </span>
                                             <button
                                                 onClick={async () => {
-                                                    if (confirm('메모를 삭제하시겠습니까?')) {
+                                                    if (await confirm('메모를 삭제하시겠습니까?')) {
                                                         const res = await deleteQuickNote(note.id);
                                                         if (res.success) {
                                                             // Refresh local state if needed or rely on re-fetch
@@ -259,7 +261,11 @@ export default function PatientPage() {
                                                                 quickNotes: prev.quickNotes.filter((n: any) => n.id !== note.id)
                                                             } : null);
 
-                                                            if (confirm('삭제되었습니다. 되살리시겠습니까? (Undo)')) {
+                                                            if (await confirm('삭제되었습니다. 되살리시겠습니까? (Undo)', {
+                                                                title: "실행 취소",
+                                                                confirmText: "되살리기",
+                                                                variant: "default"
+                                                            })) {
                                                                 const restoreRes = await restoreQuickNote(note.id);
                                                                 if (restoreRes.success) {
                                                                     // Optimistically add back if we have full object, but simpler to reload

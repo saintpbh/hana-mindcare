@@ -1,6 +1,7 @@
 import { LucideIcon, MoreHorizontal, Calendar, Activity, CheckCircle2, Circle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface ClientCardProps {
     id: string;
@@ -15,6 +16,7 @@ interface ClientCardProps {
 }
 
 export function ClientCard({ id, name, status, nextSession, lastSession, tags, isSelected, onSelect, onRestart }: ClientCardProps) {
+    const { confirm } = useConfirm();
     const statusColors = {
         stable: "bg-[var(--color-midnight-navy)] text-white",
         attention: "bg-[var(--color-champagne-gold)] text-white",
@@ -92,10 +94,14 @@ export function ClientCard({ id, name, status, nextSession, lastSession, tags, i
             {status === "terminated" && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                     <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (confirm(`${name}님의 상담을 재시작하시겠습니까?`)) {
+                            if (await confirm(`${name}님의 상담을 재시작하시겠습니까?`, {
+                                title: "상담 재시작",
+                                confirmText: "재시작",
+                                variant: "default"
+                            })) {
                                 onRestart?.(id);
                             }
                         }}

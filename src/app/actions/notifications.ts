@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth';
 
 type NotificationData = {
     userId: string;
@@ -16,8 +17,11 @@ type NotificationData = {
  */
 export async function scheduleNotification(data: NotificationData) {
     try {
+        const session = await requireAuth();
+
         const notification = await prisma.notification.create({
             data: {
+                accountId: session.accountId,
                 userId: data.userId,
                 type: data.type,
                 title: data.title,
@@ -39,8 +43,11 @@ export async function scheduleNotification(data: NotificationData) {
  */
 export async function getUpcomingNotifications(userId: string) {
     try {
+        const session = await requireAuth();
+
         const notifications = await prisma.notification.findMany({
             where: {
+                accountId: session.accountId,
                 userId,
                 sentAt: null,
                 scheduledFor: { gte: new Date() },
@@ -60,8 +67,11 @@ export async function getUpcomingNotifications(userId: string) {
  */
 export async function getSentNotifications(userId: string, limit = 20) {
     try {
+        const session = await requireAuth();
+
         const notifications = await prisma.notification.findMany({
             where: {
+                accountId: session.accountId,
                 userId,
                 sentAt: { not: null },
             },
@@ -81,8 +91,13 @@ export async function getSentNotifications(userId: string, limit = 20) {
  */
 export async function markNotificationAsRead(notificationId: string) {
     try {
+        const session = await requireAuth();
+
         await prisma.notification.update({
-            where: { id: notificationId },
+            where: {
+                id: notificationId,
+                accountId: session.accountId
+            },
             data: { isRead: true },
         });
         return { success: true };
@@ -97,8 +112,14 @@ export async function markNotificationAsRead(notificationId: string) {
  */
 export async function markNotificationAsSent(notificationId: string) {
     try {
+        // This might be called by a cron job or system process, but if called from UI:
+        const session = await requireAuth();
+
         await prisma.notification.update({
-            where: { id: notificationId },
+            where: {
+                id: notificationId,
+                accountId: session.accountId
+            },
             data: { sentAt: new Date() },
         });
         return { success: true };
@@ -224,8 +245,11 @@ export async function createAppointmentNotifications(
  */
 export async function deleteAppointmentNotifications(appointmentId: string) {
     try {
+        const session = await requireAuth();
+
         await prisma.notification.deleteMany({
             where: {
+                accountId: session.accountId,
                 appointmentId,
                 sentAt: null, // 아직 발송되지 않은 알림만 삭제
             },

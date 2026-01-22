@@ -4,7 +4,9 @@ import { usePersistence } from "@/hooks/usePersistence";
 import { type Client } from "@prisma/client";
 import { RescheduleModal } from "./RescheduleModal";
 import { QuickNoteModal } from "./QuickNoteModal";
+import { QuickNoteModal } from "./QuickNoteModal";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface QuickClientProfileProps {
     client: Client;
@@ -13,6 +15,7 @@ interface QuickClientProfileProps {
 import { deleteQuickNote, restoreQuickNote } from "@/app/actions/clients";
 
 export function QuickClientProfile({ client }: QuickClientProfileProps) {
+    const { confirm } = useConfirm();
     const { updateClient } = usePersistence();
     const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -30,8 +33,12 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
 
     const isCrisis = client.status === "crisis";
 
-    const handleCancelSession = () => {
-        if (confirm("정말로 금일 상담을 취소하시겠습니까?\n(일정은 유지되지만 '취소됨'으로 표시됩니다.)")) {
+    const handleCancelSession = async () => {
+        if (await confirm("정말로 금일 상담을 취소하시겠습니까?\n(일정은 유지되지만 '취소됨'으로 표시됩니다.)", {
+            title: "상담 취소",
+            confirmText: "상담 취소",
+            variant: "destructive"
+        })) {
             updateClient({ ...client, isSessionCanceled: true });
         }
     };
@@ -151,11 +158,16 @@ export function QuickClientProfile({ client }: QuickClientProfileProps) {
                                     <button
                                         onClick={async (e) => {
                                             e.stopPropagation();
-                                            if (confirm('메모를 삭제하시겠습니까?')) {
+                                            if (await confirm('메모를 삭제하시겠습니까?', {
+                                                variant: "destructive"
+                                            })) {
                                                 await deleteQuickNote(note.id);
-                                                // Optional "Undo" prompt immediately after 
-                                                // (User asked for Undo capability, this is the simplest "Undo" without new UI components)
-                                                if (confirm('메모가 삭제되었습니다. 되살리시겠습니까? (Undo)')) {
+                                                // undo
+                                                if (await confirm('메모가 삭제되었습니다. 되살리시겠습니까? (Undo)', {
+                                                    title: "실행 취소",
+                                                    confirmText: "되살리기",
+                                                    variant: "default"
+                                                })) {
                                                     await restoreQuickNote(note.id);
                                                 }
                                             }
