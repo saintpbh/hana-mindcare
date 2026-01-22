@@ -63,6 +63,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Super Admin Fields
+  isSuperAdmin Boolean @default(false)
+  isApproved   Boolean @default(true) // Default true for now to not break existing flows
+
   @@index([email])
 }
 

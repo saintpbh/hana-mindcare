@@ -33,6 +33,11 @@ export const authOptions: NextAuthOptions = {
                     throw new Error("존재하지 않는 이메일입니다.");
                 }
 
+                // Check Approval Status
+                if (user.isApproved === false) {
+                    throw new Error("관리자의 승인이 필요한 계정입니다.");
+                }
+
                 // 비밀번호 검증
                 const isPasswordValid = await bcrypt.compare(
                     credentials.password,
@@ -53,6 +58,8 @@ export const authOptions: NextAuthOptions = {
                     email: user.email,
                     name: user.name,
                     image: user.profileImage,
+                    isSuperAdmin: user.isSuperAdmin,
+                    isApproved: user.isApproved,
                 };
             },
         }),
@@ -74,6 +81,8 @@ export const authOptions: NextAuthOptions = {
             // 초기 로그인 시
             if (user) {
                 token.userId = user.id;
+                token.isSuperAdmin = user.isSuperAdmin;
+                token.isApproved = user.isApproved;
 
                 // 기본 accountId (Personal Account)
                 const personalAccount = await prisma.account.findFirst({
@@ -115,9 +124,13 @@ export const authOptions: NextAuthOptions = {
         async session({ session, token }) {
             if (token) {
                 session.user.id = token.userId as string;
+                session.user.isSuperAdmin = token.isSuperAdmin as boolean;
+                session.user.isApproved = token.isApproved as boolean;
+
                 session.accountId = token.accountId as string;
                 session.accountType = token.accountType as "personal" | "organization";
                 session.role = token.role as "owner" | "admin" | "counselor" | "staff";
+                session.isSuperAdmin = token.isSuperAdmin as boolean;
             }
             return session;
         },

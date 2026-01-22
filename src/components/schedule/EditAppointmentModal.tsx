@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { X, Clock, Calendar, MapPin, User, Tag, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/contexts/ConfirmContext";
 
