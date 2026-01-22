@@ -6,8 +6,182 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================
+// Multi-Tenant Account System
+// ============================================
+
+enum AccountType {
+  personal
+  organization
+}
+
+enum PlanType {
+  basic
+  team
+  enterprise
+}
+
+enum MemberRole {
+  owner
+  admin
+  counselor
+  staff
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  declined
+  cancelled
+}
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  password     String // bcrypt hashed
+  name         String
+  phone        String?
+  profileImage String?
+
+  // Professional Info
+  specialties    String[] // ['불안장애', '우울증']
+  qualifications String[] // ['임상심리사 1급', 'EMDR']
+
+  // Email Verification
+  emailVerified DateTime?
+
+  // Personal Account (1:1 relationship)
+  personalAccountId String?  @unique
+  personalAccount   Account? @relation("PersonalAccount", fields: [personalAccountId], references: [id], onDelete: SetNull)
+
+  // Organization Memberships (1:N)
+  memberships Member[]
+
+  // Sent Invitations
+  sentInvitations Invitation[] @relation("Inviter")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Account {
+  id   String      @id @default(cuid())
+  type AccountType // 'personal' | 'organization'
+  name String // Personal: "박지은", Organization: "김상담 심리상담소"
+
+  // Personal Account link (1:1)
+  personalUser User? @relation("PersonalAccount")
+
+  // Organization only fields
+  businessNumber String? // 사업자번호
+  address        String?
+  phone          String?
+  logoUrl        String?
+
+  // Subscription
+  plan          PlanType  @default(basic)
+  planExpiresAt DateTime?
+
+  // Members (Organization only)
+  members Member[]
+
+  // Data owned by this account
+  clients       Client[]
+  sessions      Session[]
+  templates     Template[]
+  notifications Notification[]
+
+  // Sent invitations
+  invitations Invitation[]
+
+  // Settings (flexible JSON for custom config)
+  settings Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([plan])
+}
+
+model Member {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  role MemberRole // 'owner' | 'admin' | 'counselor' | 'staff'
+
+  // Client Assignment (for Counselors)
+  assignedClients ClientAssignment[]
+
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, accountId]) // One user can only be a member once per account
+  @@index([accountId, role])
+  @@index([userId])
+}
+
+model Invitation {
+  id String @id @default(cuid())
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  inviterId String
+  inviter   User   @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  email String // Invitee email
+  role  MemberRole // Role to assign when accepted
+
+  token String @unique @default(cuid()) // Invitation link token
+
+  status InvitationStatus @default(pending)
+
+  expiresAt  DateTime // Expires in 7 days
+  acceptedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([accountId, status])
+}
+
+model ClientAssignment {
+  id String @id @default(cuid())
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  memberId String // Counselor's Member ID
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  isPrimary Boolean @default(false) // Primary counselor flag
+
+  assignedAt DateTime @default(now())
+
+  @@unique([clientId, memberId]) // One counselor can only be assigned once per client
+  @@index([memberId])
+  @@index([clientId, isPrimary])
+}
+
+// ============================================
+// Existing Models (with accountId added)
+// ============================================
+
 model Client {
-  id                String    @id @default(uuid())
+  id String @id @default(uuid())
+
+  // Multi-tenant account ownership
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
   name              String
   englishName       String?
   age               Int
@@ -30,12 +204,15 @@ model Client {
   portalToken        String?   @unique @default(uuid())
   lastPortalAccessAt DateTime?
   isVideoEnabled     Boolean   @default(false)
-  
+
   // Favorite for quick access
-  isFavorite         Boolean   @default(false)
+  isFavorite Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Client Assignment (Organization only)
+  assignments ClientAssignment[]
 
   sessions   Session[]
   quickNotes QuickNote[]
@@ -46,6 +223,9 @@ model Client {
   moods         Mood[]
   prescriptions Prescription[]
   messages      Message[]
+
+  @@index([accountId])
+  @@index([accountId, status])
 }
 
 model Mood {
@@ -128,6 +308,8 @@ model Session {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  account   Account  @relation(fields: [accountId], references: [id])
+  accountId String
 }
 
 model CounselingLog {
@@ -272,6 +454,8 @@ model Notification {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  account   Account  @relation(fields: [accountId], references: [id])
+  accountId String
 
   @@index([userId, sentAt])
   @@index([scheduledFor])
@@ -317,6 +501,8 @@ model Template {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  account   Account  @relation(fields: [accountId], references: [id])
+  accountId String
 
   @@index([userId, type])
   @@index([category])

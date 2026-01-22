@@ -5,6 +5,8 @@ import { User, Bell, Monitor, Globe, Shield, LogOut, Camera, ChevronRight, Moon,
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { sendAppointmentReminder } from "@/services/smsService";
+import { ProfileSettings } from "@/components/settings/ProfileSettings";
+
 
 const TABS = [
     { id: "account", label: "계정 (Account)", icon: User },
@@ -69,7 +71,7 @@ export default function SettingsPage() {
                             transition={{ duration: 0.2 }}
                             className="bg-white rounded-2xl border border-[var(--color-midnight-navy)]/5 shadow-sm p-8 min-h-[500px]"
                         >
-                            {activeTab === "account" && <AccountSettings />}
+                            {activeTab === "account" && <ProfileSettings />}
                             {activeTab === "notifications" && <NotificationSettings />}
                             {activeTab === "display" && <DisplaySettings />}
                             {activeTab === "general" && <GeneralSettings />}
