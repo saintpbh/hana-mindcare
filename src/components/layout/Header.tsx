@@ -3,6 +3,7 @@ import { useUserRole, UserRole } from "@/contexts/UserRoleContext";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 export function Header() {
     const { role, setRole } = useUserRole();
@@ -136,6 +137,9 @@ export function Header() {
                         className="h-10 pl-10 pr-4 rounded-full bg-white border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-midnight-navy)]/10 w-64 transition-all focus:w-72"
                     />
                 </div>
+
+                {/* Notification Center */}
+                <NotificationCenter userId="demo-user-id" />
 
                 <div className="w-10 h-10 rounded-full bg-neutral-200 border-2 border-white shadow-sm overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-midnight-navy)]/20 transition-all">
                     {/* Placeholder for user avatar */}

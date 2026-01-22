@@ -7,61 +7,64 @@ datasource db {
 }
 
 model Client {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   name              String
   englishName       String?
   age               Int
   gender            String
   condition         String
-  status            String   // 'stable', 'attention', 'crisis'
+  status            String // 'stable', 'attention', 'crisis'
   lastSession       String
   nextSession       String
   sessionTime       String
-  sessionType       String?  // 'in-person', 'online', 'phone'
+  sessionType       String? // 'in-person', 'online', 'phone'
   location          String?
-  isSessionCanceled Boolean  @default(false)
+  isSessionCanceled Boolean   @default(false)
   terminatedAt      DateTime? // Date when counseling was terminated
   tags              String[]
   notes             String
   contact           String
-  
-  // Portal Management
-  isPortalActive    Boolean  @default(true)
-  portalToken       String?   @unique @default(uuid())
-  lastPortalAccessAt DateTime?
-  isVideoEnabled    Boolean  @default(false)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 
-  sessions          Session[]
-  quickNotes        QuickNote[]
+  // Portal Management
+  isPortalActive     Boolean   @default(true)
+  portalToken        String?   @unique @default(uuid())
+  lastPortalAccessAt DateTime?
+  isVideoEnabled     Boolean   @default(false)
   
-  counselorId       String?
-  counselor         Counselor? @relation(fields: [counselorId], references: [id])
-  
-  moods             Mood[]
-  prescriptions     Prescription[]
-  messages          Message[]
+  // Favorite for quick access
+  isFavorite         Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions   Session[]
+  quickNotes QuickNote[]
+
+  counselorId String?
+  counselor   Counselor? @relation(fields: [counselorId], references: [id])
+
+  moods         Mood[]
+  prescriptions Prescription[]
+  messages      Message[]
 }
 
 model Mood {
   id        String   @id @default(uuid())
   clientId  String
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  score     Int      // 1: Bad, 2: Neutral, 3: Good
+  score     Int // 1: Bad, 2: Neutral, 3: Good
   note      String?
   createdAt DateTime @default(now())
 }
 
 model Message {
-  id          String   @id @default(uuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  content     String   @db.Text
-  senderName  String   // e.g., "Dr. Hana", "Counselor"
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  senderName String // e.g., "Dr. Hana", "Counselor"
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
 }
 
 model Prescription {
@@ -69,8 +72,8 @@ model Prescription {
   clientId    String
   client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   title       String
-  type        String   // 'video', 'article', 'audio', 'homework'
-  category    String?  // 'Homework', 'Reading', 'Video', etc.
+  type        String // 'video', 'article', 'audio', 'homework'
+  category    String? // 'Homework', 'Reading', 'Video', etc.
   description String?
   contentUrl  String?
   isCompleted Boolean  @default(false)
@@ -78,82 +81,82 @@ model Prescription {
 }
 
 model Counselor {
-  id                String   @id @default(uuid())
-  name              String
-  nickname          String?
-  birthYear         String?
-  gender            String?
-  qualifications    String[] // e.g., ["Clinical Psychologist", "Art Therapist"]
-  specialties       String[] // e.g., ["Anxiety", "Trauma"]
-  residence         String?  // For distance check
-  phoneNumber       String?
-  
-  clients           Client[]
-  sessions          Session[]
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             String   @id @default(uuid())
+  name           String
+  nickname       String?
+  birthYear      String?
+  gender         String?
+  qualifications String[] // e.g., ["Clinical Psychologist", "Art Therapist"]
+  specialties    String[] // e.g., ["Anxiety", "Trauma"]
+  residence      String? // For distance check
+  phoneNumber    String?
+
+  clients  Client[]
+  sessions Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Session {
-  id          String   @id @default(uuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  
+  id       String @id @default(uuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
   counselorId String?
   counselor   Counselor? @relation(fields: [counselorId], references: [id])
-  
-  date        DateTime
-  title       String   // e.g., "Initial Consultation", "CBT Session 1"
-  type        String   @default("상담") // '상담', '검사', etc.
-  duration    Int      @default(50) // minutes
-  status      String   @default("Scheduled") // 'Scheduled', 'Completed', 'Canceled', 'NoShow'
-  
-  recurring   String?  // 'None', 'Weekly', 'BiWeekly', 'Monthly'
-  
-  // Analysis Fields (Optional for future appointments)
-  summary     String?  @db.Text
-  sentiment   String?   // 'Positive', 'Neutral', 'Negative'
-  keywords    String[] // e.g., ["anxiety", "work", "sleep"]
-  
-  transcript  String?  @db.Text // Verbatim transcript
-  notes       String?  @db.Text // Counselor's session notes
-  counselingLog CounselingLog?
-  
-  meetingLink String?  // Zoom Meeting URL
-  location    String?  // 'Zoom', 'Seoul Center', etc.
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  date     DateTime
+  title    String // e.g., "Initial Consultation", "CBT Session 1"
+  type     String   @default("상담") // '상담', '검사', etc.
+  duration Int      @default(50) // minutes
+  status   String   @default("Scheduled") // 'Scheduled', 'Completed', 'Canceled', 'NoShow'
+
+  recurring String? // 'None', 'Weekly', 'BiWeekly', 'Monthly'
+
+  // Analysis Fields (Optional for future appointments)
+  summary   String?  @db.Text
+  sentiment String? // 'Positive', 'Neutral', 'Negative'
+  keywords  String[] // e.g., ["anxiety", "work", "sleep"]
+
+  transcript    String?        @db.Text // Verbatim transcript
+  notes         String?        @db.Text // Counselor's session notes
+  counselingLog CounselingLog?
+
+  meetingLink String? // Zoom Meeting URL
+  location    String? // 'Zoom', 'Seoul Center', etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CounselingLog {
-  id          String   @id @default(uuid())
-  sessionId   String   @unique
-  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  type        String   @default("SOAP") // 'SOAP', 'GENERAL'
-  
+  id        String  @id @default(uuid())
+  sessionId String  @unique
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  type String @default("SOAP") // 'SOAP', 'GENERAL'
+
   // SOAP Fields
-  subjective  String?  @db.Text
-  objective   String?  @db.Text
-  assessment  String?  @db.Text
-  plan        String?  @db.Text
-  
-  status      String   @default("DRAFT") // 'DRAFT', 'FINAL'
-  writerName  String?
-  signedAt    DateTime?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  subjective String? @db.Text
+  objective  String? @db.Text
+  assessment String? @db.Text
+  plan       String? @db.Text
+
+  status     String    @default("DRAFT") // 'DRAFT', 'FINAL'
+  writerName String?
+  signedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model QuickNote {
-  id        String   @id @default(uuid())
-  content   String   @db.Text
+  id        String    @id @default(uuid())
+  content   String    @db.Text
   clientId  String?
   client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   deletedAt DateTime? // For soft delete
 }
 
@@ -179,72 +182,142 @@ model Post {
   id          String   @id @default(cuid())
   title       String
   content     String   @db.Text
-  category    String   // '상담 팁', '케이스 스터디', '정보 공유', '자료 요청', '운영/경영', '자유 수다'
+  category    String // '상담 팁', '케이스 스터디', '정보 공유', '자료 요청', '운영/경영', '자유 수다'
   tags        String[]
   isAnonymous Boolean  @default(false)
   viewCount   Int      @default(0)
-  
+
   // Author (optional for anonymous posts)
-  authorId    String?
-  authorName  String?  // Cached for performance
-  authorRole  String?  // Cached for performance
-  
-  comments    Comment[]
-  likes       PostLike[]
-  bookmarks   PostBookmark[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  authorId   String?
+  authorName String? // Cached for performance
+  authorRole String? // Cached for performance
+
+  comments  Comment[]
+  likes     PostLike[]
+  bookmarks PostBookmark[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([category])
   @@index([createdAt])
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String   @db.Text
-  
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  
+  id      String @id @default(cuid())
+  content String @db.Text
+
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
   // Author (optional for anonymous comments)
-  authorId  String?
+  authorId   String?
   authorName String?
   authorRole String?
-  
+
   // Nested comments (replies)
-  parentId  String?
-  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
-  
-  isHelpful Int      @default(0)  // "도움됨" 카운트
-  
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
+
+  isHelpful Int @default(0) // "도움됨" 카운트
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([postId])
 }
 
 model PostLike {
-  id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String   // Counselor ID
-  
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String // Counselor ID
+
   createdAt DateTime @default(now())
-  
+
   @@unique([postId, userId])
   @@index([postId])
 }
 
 model PostBookmark {
-  id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String   // Counselor ID
-  
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String // Counselor ID
+
   createdAt DateTime @default(now())
-  
+
   @@unique([postId, userId])
   @@index([userId])
+}
+
+// ============================================
+// Notification System Models
+// ============================================
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+
+  type    String // 'session_reminder_30min', 'session_reminder_1hour', 'schedule_change', 'client_message'
+  title   String
+  message String
+
+  appointmentId String?
+
+  scheduledFor DateTime // 발송 예정 시간
+  sentAt       DateTime? // 실제 발송 시간 (null이면 아직 미발송)
+  isRead       Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, sentAt])
+  @@index([scheduledFor])
+}
+
+model NotificationSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // 브라우저 알림
+  browserEnabled Boolean @default(true)
+  reminder30min  Boolean @default(true)
+  reminder1hour  Boolean @default(true)
+
+  // SMS 알림 (선택사항)
+  smsEnabled          Boolean @default(false)
+  smsOnScheduleChange Boolean @default(false)
+
+  // 자동 시작 설정
+  autoStartRecording Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// Template Library Models
+// ============================================
+
+model Template {
+  id     String @id @default(cuid())
+  userId String
+
+  type     String // 'soap_note', 'prescription', 'quick_note'
+  name     String // 템플릿 이름
+  category String? // 카테고리 (예: 'anxiety', 'depression', 'stress')
+
+  content Json // 템플릿 내용 (타입별로 다른 구조)
+
+  isPublic   Boolean @default(false) // 다른 상담사와 공유
+  isFavorite Boolean @default(false) // 즐겨찾기
+  usageCount Int     @default(0) // 사용 횟수
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type])
+  @@index([category])
 }

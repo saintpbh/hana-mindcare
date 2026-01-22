@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Clock } from "lucide-react";
 import Link from "next/link";
@@ -18,12 +18,25 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 export default function SessionPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [isRecording, setIsRecording] = useState(false);
     const [showInsights, setShowInsights] = useState(false);
     const [isEndSessionModalOpen, setIsEndSessionModalOpen] = useState(false);
 
     const [transcriptCount, setTranscriptCount] = useState(0);
     const [notes, setNotes] = useState("");
+
+    // Auto-start recording if query parameter is present
+    useEffect(() => {
+        const autoStart = searchParams.get('autoStart');
+        if (autoStart === 'true') {
+            // Wait a moment for UI to render, then start recording
+            const timer = setTimeout(() => {
+                setIsRecording(true);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [searchParams]);
 
     // Session Timer Logic
     const [duration, setDuration] = useState(0);

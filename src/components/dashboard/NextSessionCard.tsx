@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, Video, FileText, AlertCircle, ArrowRight, Calendar, MoreVertical, XCircle, Clock4, RotateCcw } from "lucide-react";
+import { Clock, Video, FileText, AlertCircle, ArrowRight, Calendar, MoreVertical, XCircle, Clock4, RotateCcw, Zap } from "lucide-react";
 import { getNextSession, updateAppointmentStatus } from "@/app/actions/appointments";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -167,9 +167,16 @@ export function NextSessionCard({ refreshKey, onReschedule, onStatusChange }: Ne
                     <div className="flex gap-3">
                         <Link
                             href={`/patients/${session.clientId}?view=session`}
-                            className="flex-1 bg-white text-[var(--color-midnight-navy)] py-3.5 rounded-2xl font-bold text-sm hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] active:scale-95"
+                            className="flex-1 bg-white/10 border border-white/20 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-white/20 transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
                         >
-                            Enter Session Room <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                            세션 시작 <ArrowRight className="w-4 h-4" />
+                        </Link>
+                        <Link
+                            href={`/session/${session.clientId}?autoStart=true`}
+                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-2xl font-bold text-sm hover:from-emerald-600 hover:to-teal-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 hover:scale-[1.02] active:scale-95"
+                            title="빠른 시작 - 즉시 녹음 시작"
+                        >
+                            <Zap className="w-4 h-4" /> 빠른 시작
                         </Link>
                         <button className="px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 transition-colors text-white">
                             <FileText className="w-5 h-5" />
