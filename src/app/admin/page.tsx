@@ -42,9 +42,14 @@ export default function AdminPage() {
     const handleStatusToggle = async (userId: string, currentStatus: boolean, name: string) => {
         if (!confirm(`${name}님의 상태를 ${currentStatus ? '미승인' : '승인'}으로 변경하시겠습니까?`)) return;
 
-        const res = await updateUserStatus(userId, !currentStatus);
-        if (res.success) {
-            loadData(); // Refresh
+        try {
+            const res = await updateUserStatus(userId, !currentStatus);
+            if (res.success) {
+                loadData(); // Refresh, the UI will reflect changes
+            }
+        } catch (err: any) {
+            console.error("Failed to update status:", err);
+            alert(`오류가 발생했습니다: ${err.message}`);
         }
     };
 

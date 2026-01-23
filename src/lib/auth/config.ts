@@ -57,7 +57,7 @@ export const authOptions: NextAuthOptions = {
                     id: user.id,
                     email: user.email,
                     name: user.name,
-                    image: user.profileImage,
+                    image: user.profileImage ?? undefined,
                     isSuperAdmin: user.isSuperAdmin,
                     isApproved: user.isApproved,
                 };
@@ -139,3 +139,7 @@ export const authOptions: NextAuthOptions = {
     secret: process.env.NEXTAUTH_SECRET,
     debug: process.env.NODE_ENV === "development",
 };
+
+if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === "production") {
+    console.error("⚠️ NEXTAUTH_SECRET is not set. This is required in production.");
+}

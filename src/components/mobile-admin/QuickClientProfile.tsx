@@ -4,7 +4,7 @@ import { usePersistence } from "@/hooks/usePersistence";
 import { type Client } from "@prisma/client";
 import { RescheduleModal } from "./RescheduleModal";
 import { QuickNoteModal } from "./QuickNoteModal";
-import { QuickNoteModal } from "./QuickNoteModal";
+
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/contexts/ConfirmContext";
 

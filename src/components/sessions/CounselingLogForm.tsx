@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Save, AlertCircle, CheckCircle, Printer, Sparkles } from "lucide-react";
 import { CounselingLogData, upsertCounselingLog, getSessionDetails } from "@/app/actions/sessions";
 import { generateCounselingLog } from "@/app/actions/ai";
-import { generateCounselingLog } from "@/app/actions/ai";
+
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/contexts/ConfirmContext";
 
