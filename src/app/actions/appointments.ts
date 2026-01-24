@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { requireAuth } from '@/lib/auth'
 
 // Map Session to UI Appointment
 function mapSessionToAppointment(session: any) {
@@ -24,8 +25,10 @@ function mapSessionToAppointment(session: any) {
 
 export async function getAppointments(startDate: Date, endDate: Date) {
     try {
+        const session = await requireAuth();
         const sessions = await prisma.session.findMany({
             where: {
+                accountId: session.accountId,
                 date: {
                     gte: startDate,
                     lte: endDate
@@ -48,9 +51,11 @@ export async function getAppointments(startDate: Date, endDate: Date) {
 
 export async function getNextSession() {
     try {
+        const session = await requireAuth();
         const now = new Date();
         const nextSession = await prisma.session.findFirst({
             where: {
+                accountId: session.accountId,
                 date: { gte: now },
                 status: 'Scheduled'
             },
@@ -112,9 +117,18 @@ export async function createAppointment(data: {
             );
         }
 
-        const session = await prisma.session.create({
+        const session = await requireAuth();
+
+        // Verify client belongs to account
+        const client = await prisma.client.findFirst({
+            where: { id: data.clientId, accountId: session.accountId }
+        });
+        if (!client) return { success: false, error: "Client not found" };
+
+        const newSession = await prisma.session.create({
             data: {
                 clientId: data.clientId,
+                accountId: session.accountId,
                 counselorId: data.counselorId,
                 date: dateTime,
                 title: `${data.type} (예약)`, // Default title
@@ -140,8 +154,15 @@ export async function createAppointment(data: {
 
 export async function updateAppointmentStatus(id: string, status: string) {
     try {
+        // Check auth for update? Usually good practice, though maybe not strictly required if ID is UUID.
+        // But let's add it for consistency if we can. 
+        // Note: updateAppointmentStatus only takes ID. We should probably verify ownership.
+        const session = await requireAuth();
         await prisma.session.update({
-            where: { id },
+            where: {
+                id,
+                accountId: session.accountId
+            },
             data: { status }
         });
         revalidatePath('/schedule');
@@ -157,8 +178,10 @@ export async function checkAvailability(date: string) {
         const startOfDay = new Date(`${date}T00:00:00`);
         const endOfDay = new Date(`${date}T23:59:59`);
 
+        const session = await requireAuth();
         const bookedSessions = await prisma.session.findMany({
             where: {
+                accountId: session.accountId,
                 date: {
                     gte: startOfDay,
                     lte: endOfDay
@@ -195,9 +218,12 @@ export async function processIntake(data: {
     duration: number
 }) {
     try {
+        const session = await requireAuth();
+
         // 1. Create Client
         const client = await prisma.client.create({
             data: {
+                accountId: session.accountId,
                 name: data.name,
                 contact: data.phone,
                 notes: data.notes,
@@ -226,6 +252,7 @@ export async function processIntake(data: {
         // 3. Create Session
         await prisma.session.create({
             data: {
+                accountId: session.accountId,
                 clientId: client.id,
                 date: targetDate,
                 title: '초기 면담 (Intake)',
