@@ -61,12 +61,24 @@ export default function PatientPage() {
     }, [params.id]);
 
     const handleSaveProfile = async (updatedClient: Client) => {
-        if (!client) return;
+        console.log('🔵 handleSaveProfile called with:', updatedClient);
+        if (!client) {
+            console.log('❌ No client, returning');
+            return;
+        }
+
+        console.log('🔵 Calling updateClient with id:', client.id);
         const result = await updateClient(client.id, updatedClient);
+        console.log('🔵 updateClient result:', result);
+
         if (result.success && result.data) {
+            console.log('✅ Update successful, updating local state');
             // Re-fetch to get consistent state or just update local
             setClient((prev: any) => prev ? { ...prev, ...result.data } : null);
             setIsEditOpen(false);
+        } else {
+            console.error('❌ Update failed:', result.error);
+            alert(`수정 실패: ${result.error || '알 수 없는 오류'}`);
         }
     };
 
