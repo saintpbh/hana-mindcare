@@ -40,11 +40,7 @@ export function EditClientModal({ isOpen, onClose, onSave, client }: EditClientM
     }, [isOpen, client]);
 
     const handleSave = () => {
-        console.log('🔵 EditClientModal handleSave called');
-        if (!client || !name || !age || !condition) {
-            console.log('❌ Validation failed:', { client: !!client, name, age, condition });
-            return;
-        }
+        if (!client || !name || !age || !condition) return;
 
         const updatedClient: Client = {
             ...client,

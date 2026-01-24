@@ -127,20 +127,7 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     };
 
     const handleConfirm = async () => {
-        console.log('🔵 handleConfirm called');
-        if (!activeClient) {
-            console.log('❌ No active client, returning');
-            return;
-        }
-
-        console.log('🔵 Calling createAppointment with:', {
-            clientId: activeClient.id,
-            date: selectedDate,
-            time: selectedTime,
-            type: selectedType,
-            duration: parseInt(selectedDuration),
-            location: selectedLocation
-        });
+        if (!activeClient) return;
 
         try {
             // Call Server Action
@@ -156,21 +143,16 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
                 location: selectedLocation // Pass explicit location field
             });
 
-            console.log('🔵 createAppointment result:', result);
-
             if (result.success) {
-                console.log('✅ Success! Appointment created');
                 if (rescheduleMode && sendSms) {
                     alert(`[Simulation] SMS sent to ${activeClient.name}: "Your appointment has been rescheduled to ${selectedDate} at ${selectedTime}."`);
                 }
                 if (onSuccess) onSuccess();
                 onClose();
             } else {
-                console.error('❌ Failed to create appointment. Error:', result.error);
                 alert(`Failed to create appointment. ${result.error || ''}`);
             }
         } catch (error) {
-            console.error('❌ Exception in handleConfirm:', error);
             alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     };

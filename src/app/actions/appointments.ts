@@ -104,34 +104,27 @@ export async function createAppointment(data: {
     location?: string     // Added
 }) {
     try {
-        console.log('createAppointment called with data:', data);
         const dateTime = new Date(`${data.date}T${data.time}:00`);
-        console.log('Parsed dateTime:', dateTime);
         let meetingLink = null;
 
         // Auto-create meeting link if type implies video/remote
         if (data.type === 'online' || data.type === 'video' || data.type?.includes('비대면') || data.type?.includes('Video') || data.type?.includes('Zoom') || data.location === 'Zoom (화상)' || data.location?.includes('비대면')) {
-            console.log('Generating meeting link...');
             meetingLink = await generateMeetingLink(
                 `${data.type} - 상담 예약`,
                 dateTime,
                 data.duration
             );
-            console.log('Meeting link generated:', meetingLink);
         }
 
         const session = await requireAuth();
-        console.log('Auth session:', session.accountId);
 
         // Verify client belongs to account
         const client = await prisma.client.findFirst({
             where: { id: data.clientId, accountId: session.accountId }
         });
         if (!client) {
-            console.error('Client not found:', data.clientId);
             return { success: false, error: "Client not found" };
         }
-        console.log('Client verified:', client.id);
 
         const newSession = await prisma.session.create({
             data: {
@@ -151,17 +144,11 @@ export async function createAppointment(data: {
                 location: data.location
             }
         });
-        console.log('Session created successfully:', newSession.id);
 
         revalidatePath('/schedule');
         return { success: true, data: newSession };
     } catch (error) {
-        console.error("Failed to create appointment - Full error:", error);
-        console.error("Error details:", {
-            name: error instanceof Error ? error.name : 'Unknown',
-            message: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined
-        });
+        console.error("Failed to create appointment:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to create appointment" };
     }
 }
