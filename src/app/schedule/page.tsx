@@ -99,13 +99,21 @@ export default function SchedulePage() {
 
             if (result.success && result.data) {
                 const mappedAppointments = result.data.map((session: any) => {
-                    // Start time parsing
-                    const timeStr = session.time || "10:00";
-                    const hour = parseInt(timeStr.split(':')[0], 10);
+                    const sessionDate = new Date(session.date); // Native Date handles UTC -> Local conversion automatically
 
-                    // Date parsing
-                    const sessionDate = new Date(session.rawDate);
-                    const day = sessionDate.getDay() - 1; // 0=Sun, 1=Mon... we want 0=Mon.
+                    // Calculate float hour for Grid positioning (e.g., 14:30 -> 14.5)
+                    const hour = sessionDate.getHours() + (sessionDate.getMinutes() / 60);
+
+                    // Format time string for Display (e.g. "14:30")
+                    const timeStr = `${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}`;
+
+                    // Native YYYY-MM-DD for local date matching (Important: Do not use toISOString() split here, it converts back to UTC!)
+                    const year = sessionDate.getFullYear();
+                    const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
+                    const date = String(sessionDate.getDate()).padStart(2, '0');
+                    const rawDate = `${year}-${month}-${date}`;
+
+                    const day = sessionDate.getDay(); // 0=Sun, 1=Mon... Correct for Local Time.
 
                     let color = "bg-teal-100 text-teal-900 border-teal-200"; // Stable/Ongoing
                     if (session.status === 'Canceled') color = "bg-gray-100 text-gray-900 border-gray-200 opacity-50";
@@ -116,13 +124,13 @@ export default function SchedulePage() {
                         title: session.client, // Client Name
                         clientId: session.clientId,
                         type: session.type, // "Intake", "Counseling", etc.
-                        time: hour,
+                        time: hour, // Float
                         day: day, // 0-6 (Sun-Sat)
                         duration: session.duration || 1,
                         color,
                         location: session.location,
                         meetingLink: session.meetingLink,
-                        rawDate: session.rawDate,
+                        rawDate: rawDate, // Use the locally calculated rawDate
                         notes: session.notes,
                         status: session.status,
                         // History not available in list view, would need separate fetch on selection

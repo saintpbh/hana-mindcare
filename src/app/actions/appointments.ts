@@ -9,10 +9,9 @@ function mapSessionToAppointment(session: any) {
     return {
         id: session.id, // String in DB
         title: session.title,
-        time: session.date.toISOString().split('T')[1].substring(0, 5), // HH:MM
+        date: session.date.toISOString(), // Full UTC String for client parsing
         duration: session.duration / 60, // Convert minutes to hours for CalendarView
         type: session.type, // '상담', '검사'
-        rawDate: session.date.toISOString().split('T')[0],
         client: session.client.name,
         clientId: session.clientId,
         status: session.status as any,
