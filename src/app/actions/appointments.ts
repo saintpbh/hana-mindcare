@@ -144,7 +144,7 @@ export async function createAppointment(data: {
         });
 
         revalidatePath('/schedule');
-        return { success: true, data: session };
+        return { success: true, data: newSession };
     } catch (error) {
         console.error("Failed to create appointment:", error);
         return { success: false, error: "Failed to create appointment" };
