@@ -541,17 +541,38 @@ export function CalendarView({
                     </div>
 
                     {/* Days Columns Background */}
-                    {DAYS.filter((_, i) => view === "week" || i === 0).map((_, dayIndex) => (
-                        <div key={dayIndex} className="relative border-r border-[var(--color-midnight-navy)]/5 last:border-r-0">
-                            {/* Horizontal Grid lines */}
-                            {HOURS.map(hour => (
-                                <div key={hour} className="border-b border-[var(--color-midnight-navy)]/5 box-border" style={{ height: ROW_HEIGHT }} />
-                            ))}
+                    {DAYS.filter((_, i) => view === "week" || i === 0).map((_, i) => {
+                        // Calculate the actual date for this column to deduce the day index
+                        let displayDate: Date;
+                        if (view === "day") {
+                            displayDate = new Date(currentDate);
+                        } else {
+                            // Week view: get Sunday of the current week (Start of Week)
+                            const sunday = new Date(currentDate);
+                            const dayOfWeek = sunday.getDay(); // 0(Sun) - 6(Sat)
+                            const diffToSunday = -dayOfWeek; // Always subtract current day index to get to 0 (Sun)
+                            sunday.setDate(sunday.getDate() + diffToSunday);
 
-                            {/* Render Appointments for this day */}
-                            {renderAppointments(dayIndex)}
-                        </div>
-                    ))}
+                            // Add i days from Sunday
+                            displayDate = new Date(sunday);
+                            displayDate.setDate(sunday.getDate() + i);
+                        }
+
+                        // The actual day index (0-6) for this column
+                        const dayIndex = displayDate.getDay();
+
+                        return (
+                            <div key={i} className="relative border-r border-[var(--color-midnight-navy)]/5 last:border-r-0">
+                                {/* Horizontal Grid lines */}
+                                {HOURS.map(hour => (
+                                    <div key={hour} className="border-b border-[var(--color-midnight-navy)]/5 box-border" style={{ height: ROW_HEIGHT }} />
+                                ))}
+
+                                {/* Render Appointments for this day */}
+                                {renderAppointments(dayIndex)}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
