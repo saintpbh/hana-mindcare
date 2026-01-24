@@ -492,7 +492,7 @@ export function CalendarView({
             {/* For now, Week View uses direct absolute positioning updates, so ghost isn't strictly needed unless requested. */}
 
             {/* Week/Day Header */}
-            <div className={cn("grid border-b border-[var(--color-midnight-navy)]/5", view === "day" ? "grid-cols-[60px_1fr]" : "grid-cols-6")}>
+            <div className={cn("grid border-b border-[var(--color-midnight-navy)]/5", view === "day" ? "grid-cols-[60px_1fr]" : "grid-cols-[60px_repeat(7,1fr)]")}>
                 {/* ... (existing header) ... */}
                 <div className="p-4 border-r border-[var(--color-midnight-navy)]/5 bg-[var(--color-warm-white)]" />
                 {DAYS.filter((_, i) => view === "week" || i === 0).map((day, i) => {
@@ -530,7 +530,7 @@ export function CalendarView({
 
             {/* Time Grid */}
             <div className="flex-1 overflow-y-auto relative no-scrollbar" ref={gridRef}>
-                <div className={cn("grid min-h-[880px]", view === "day" ? "grid-cols-[60px_1fr]" : "grid-cols-6")}>
+                <div className={cn("grid min-h-[880px]", view === "day" ? "grid-cols-[60px_1fr]" : "grid-cols-[60px_repeat(7,1fr)]")}>
                     {/* Time Axis */}
                     <div className="border-r border-[var(--color-midnight-navy)]/5 bg-[var(--color-warm-white)]/30 w-full">
                         {HOURS.map(hour => (
