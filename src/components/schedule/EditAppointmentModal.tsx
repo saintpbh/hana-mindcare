@@ -10,7 +10,7 @@ interface EditAppointmentModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (updatedApt: any) => void;
-    onDelete: (id: number) => void;
+    onDelete?: (id: number) => void; // Make optional
     appointment: any;
 }
 
@@ -36,6 +36,8 @@ export function EditAppointmentModal({ isOpen, onClose, onSave, onDelete, appoin
     };
 
     const handleDelete = async () => {
+        if (!onDelete) return; // Safety check
+
         if (await confirm("정말로 이 상담 세션을 취소하시겠습니까?", {
             title: "세션 취소",
             confirmText: "취소하기",
@@ -153,12 +155,14 @@ export function EditAppointmentModal({ isOpen, onClose, onSave, onDelete, appoin
                     </div>
 
                     <div className="p-6 border-t border-[var(--color-midnight-navy)]/5 bg-white flex justify-between gap-3">
-                        <button
-                            onClick={handleDelete}
-                            className="px-4 py-3 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 text-sm font-medium"
-                        >
-                            <Trash2 className="w-4 h-4" /> 세션 취소
-                        </button>
+                        {onDelete && (
+                            <button
+                                onClick={handleDelete}
+                                className="px-4 py-3 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 text-sm font-medium"
+                            >
+                                <Trash2 className="w-4 h-4" /> 세션 취소
+                            </button>
+                        )}
 
                         <div className="flex gap-3">
                             <button
