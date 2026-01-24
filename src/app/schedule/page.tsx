@@ -234,7 +234,6 @@ export default function SchedulePage() {
                 isOpen={!!editingAppointment}
                 onClose={() => setEditingAppointment(null)}
                 onSave={handleUpdateAppointment}
-                onDelete={handleDeleteAppointment}
                 appointment={editingAppointment}
             />
 
