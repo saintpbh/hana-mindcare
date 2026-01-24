@@ -52,7 +52,7 @@ useEffect(() => {
                     clientId: session.clientId,
                     type: session.type, // "Intake", "Counseling", etc.
                     time: hour,
-                    day: day < 0 ? 6 : day, // Handle Sunday
+                    day: day, // 0-6 (Sun-Sat)
                     duration: session.duration || 1,
                     color,
                     location: session.location,

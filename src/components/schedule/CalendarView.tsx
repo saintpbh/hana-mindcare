@@ -4,10 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { GripVertical, MapPin, Video, Phone } from "lucide-react";
 
+import { updateAppointmentTime } from "@/app/actions/appointments"; // Import Server Action
+
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 9); // 9AM to 7PM
-const DAYS = ["월", "화", "수", "목", "금"];
+const DAYS = ["일", "월", "화", "수", "목", "금", "토"]; // Sun-Sat
 const ROW_HEIGHT = 80; // px per hour
-const COL_COUNT = 5;
+const COL_COUNT = 7;
 
 interface Appointment {
     id: number;
@@ -140,11 +142,11 @@ export function CalendarView({
 
             // Calculate Grid Coords
             const colWidth = (rect.width - 60) / COL_COUNT;
-            const dayIndex = Math.floor(relativeX / colWidth);
+            const dayIndex = Math.floor(relativeX / colWidth); // 0-6
             const timeIndex = 9 + (relativeY / ROW_HEIGHT);
 
             // Snap logic
-            const snappedDay = Math.max(0, Math.min(4, dayIndex));
+            const snappedDay = Math.max(0, Math.min(6, dayIndex)); // Allow 0-6 (Sun-Sat)
             // Snap to 15 mins (0.25)
             const snappedTime = Math.round(timeIndex * 4) / 4;
 
@@ -153,7 +155,8 @@ export function CalendarView({
                     if (apt.id !== draggingId) return apt;
 
                     // Boundaries
-                    const newTime = Math.max(9, Math.min(19 - apt.duration, snappedTime));
+                    // Allow dragging until later? Max 20:00?
+                    const newTime = Math.max(9, Math.min(22 - apt.duration, snappedTime));
 
                     return {
                         ...apt,
@@ -179,19 +182,65 @@ export function CalendarView({
         }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = async () => {
         if (view === "month" && draggingId && dragOverDate) {
             // Commit drop in Month view
-            setAppointments(prev => prev.map(apt => {
-                if (apt.id !== draggingId) return apt;
-                return {
-                    ...apt,
-                    rawDate: dragOverDate // Update the real date
-                };
-            }));
-            // Provide feedback or server update here
+            // ... (Logic for month view drop -> server update would be good too)
+            const appointment = appointments.find(a => a.id === draggingId);
+            if (appointment) {
+                // Try to keep time, update date
+                const newDate = new Date(dragOverDate);
+                // Need to get previous time components? 
+                // Simple approach: Set to default time 10:00 or keep existing if parsed
+                // Optimistic update
+                setAppointments(prev => prev.map(apt => {
+                    if (apt.id !== draggingId) return apt;
+                    return { ...apt, rawDate: dragOverDate };
+                }));
+
+                // Server update
+                // Mocking time preservation for month view drop is tricky without full Date object in hand
+                // Let's assume 10:00 AM for drag-dropped to new day in month view if time is lost, OR preserve hours
+                // We need to parse appointment.time (float hours).
+                const hours = Math.floor(appointment.time);
+                const mins = (appointment.time % 1) * 60;
+                newDate.setHours(hours, mins, 0, 0);
+
+                await updateAppointmentTime(appointment.id.toString(), newDate);
+            }
             setDragOverDate(null);
         }
+
+        if (view !== "month" && (draggingId || resizingId)) {
+            const activeId = draggingId || resizingId;
+            const appointment = appointments.find(a => a.id === activeId);
+
+            if (appointment && activeId) {
+                // Commit Week/Day View Drop/Resize
+                // Calculate new Date object
+                // 1. Find the base date of the current view's "week start" (Sunday or Monday?)
+                // If view is day, base is currentDate.
+                // If view is week, we need to know the Sunday of this week.
+
+                let targetDate = new Date(currentDate);
+
+                if (view === "week") {
+                    const currentDay = targetDate.getDay(); // 0-6
+                    const diff = -currentDay; // Go back to Sunday (0)
+                    targetDate.setDate(targetDate.getDate() + diff); // Set to Sunday
+                    targetDate.setDate(targetDate.getDate() + appointment.day); // Add the day index (0-6)
+                }
+
+                // Set Time
+                const hours = Math.floor(appointment.time);
+                const mins = Math.round((appointment.time % 1) * 60);
+                targetDate.setHours(hours, mins, 0, 0);
+
+                // Server Update
+                await updateAppointmentTime(activeId.toString(), targetDate, appointment.duration);
+            }
+        }
+
         setDraggingId(null);
         setResizingId(null);
         setDragPos(null); // Clear drag pos
@@ -452,15 +501,15 @@ export function CalendarView({
                     if (view === "day") {
                         displayDate = new Date(currentDate);
                     } else {
-                        // Week view: get Monday of the current week
-                        const monday = new Date(currentDate);
-                        const dayOfWeek = monday.getDay();
-                        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-                        monday.setDate(monday.getDate() + diffToMonday);
+                        // Week view: get Sunday of the current week (Start of Week)
+                        const sunday = new Date(currentDate);
+                        const dayOfWeek = sunday.getDay(); // 0(Sun) - 6(Sat)
+                        const diffToSunday = -dayOfWeek; // Always subtract current day index to get to 0 (Sun)
+                        sunday.setDate(sunday.getDate() + diffToSunday);
 
-                        // Add i days from Monday
-                        displayDate = new Date(monday);
-                        displayDate.setDate(monday.getDate() + i);
+                        // Add i days from Sunday
+                        displayDate = new Date(sunday);
+                        displayDate.setDate(sunday.getDate() + i);
                     }
 
                     const isToday = formatDate(new Date()) === formatDate(displayDate);

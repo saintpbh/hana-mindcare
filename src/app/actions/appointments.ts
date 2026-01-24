@@ -173,6 +173,34 @@ export async function updateAppointmentStatus(id: string, status: string) {
     }
 }
 
+export async function updateAppointmentTime(id: string, newDate: Date, duration?: number) {
+    try {
+        const session = await requireAuth();
+
+        // Prepare update data
+        const updateData: any = {
+            date: newDate
+        };
+        if (duration) {
+            updateData.duration = duration * 60; // Store as minutes (DB limit), UI sends hours
+        }
+
+        const updatedSession = await prisma.session.update({
+            where: {
+                id,
+                accountId: session.accountId
+            },
+            data: updateData
+        });
+
+        revalidatePath('/schedule');
+        return { success: true, data: updatedSession };
+    } catch (error) {
+        console.error("Failed to update appointment time:", error);
+        return { success: false, error: "Failed to update appointment time" };
+    }
+}
+
 export async function checkAvailability(date: string) {
     try {
         const startOfDay = new Date(`${date}T00:00:00`);
