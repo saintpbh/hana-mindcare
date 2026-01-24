@@ -27,6 +27,7 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
     const [condition, setCondition] = useState(initialData?.condition || "");
     const [status, setStatus] = useState<"stable" | "attention" | "crisis">("attention");
     const [notes, setNotes] = useState(initialData?.notes || "");
+    const [totalSessions, setTotalSessions] = useState("");
 
     // Counselor State
     const [counselors, setCounselors] = useState<any[]>([]);
@@ -63,6 +64,7 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
             sessionTime: "14:00", // Default time
             isSessionCanceled: false,
             location: null,
+            totalSessions: totalSessions ? parseInt(totalSessions) : null,
             tags: [],
             notes: notes || "상담 초기 단계입니다.",
             terminatedAt: null,
@@ -79,6 +81,7 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
         setContact("");
         setCondition("");
         setNotes("");
+        setTotalSessions("");
         onClose();
     };
 
@@ -187,18 +190,31 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">담당 상담사 (Counselor)</label>
-                            <select
-                                value={counselorId}
-                                onChange={(e) => setCounselorId(e.target.value)}
-                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
-                            >
-                                <option value="">상담사 미지정</option>
-                                {counselors.map((c: any) => (
-                                    <option key={c.id} value={c.id}>{c.name} {c.nickname ? `(${c.nickname})` : ''}</option>
-                                ))}
-                            </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">담당 상담사 (Counselor)</label>
+                                <select
+                                    value={counselorId}
+                                    onChange={(e) => setCounselorId(e.target.value)}
+                                    className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
+                                >
+                                    <option value="">상담사 미지정</option>
+                                    {counselors.map((c: any) => (
+                                        <option key={c.id} value={c.id}>{c.name} {c.nickname ? `(${c.nickname})` : ''}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">총 세션 수 (Total Sessions)</label>
+                                <input
+                                    type="number"
+                                    value={totalSessions}
+                                    onChange={(e) => setTotalSessions(e.target.value)}
+                                    className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
+                                    placeholder="예: 12"
+                                    min="1"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">

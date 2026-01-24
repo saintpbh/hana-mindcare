@@ -70,9 +70,13 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                                 isOpen={isScheduleModalOpen}
                                 onClose={() => {
                                     setIsScheduleModalOpen(false);
+                                    setScheduleClient(null);
                                     triggerRefresh();
                                 }}
                                 client={scheduleClient}
+                                rescheduleMode={scheduleClient?.existingSessionId ? true : false}
+                                rescheduleSessionId={scheduleClient?.existingSessionId}
+                                onSuccess={triggerRefresh}
                             />
                         )}
 
@@ -113,7 +117,11 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                                             onReschedule={(session) => {
                                                 const targetClient = clients.find(c => c.id === session.clientId);
                                                 if (targetClient) {
-                                                    setScheduleClient(targetClient);
+                                                    setScheduleClient({
+                                                        ...targetClient,
+                                                        existingSessionId: session.id,
+                                                        existingSessionTime: session.time
+                                                    });
                                                     setIsScheduleModalOpen(true);
                                                 }
                                             }}
@@ -134,7 +142,7 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                                     {(role !== 'admin') && (
                                         <button
                                             onClick={() => setIsConclusionModalOpen(true)}
-                                            className="absolute top-4 right-4 text-xs bg-white border border-neutral-200 px-3 py-1.5 rounded-full hover:bg-neutral-50 shadow-sm text-neutral-500 font-medium z-10"
+                                            className="absolute top-4 right-4 text-xs bg-white border border-neutral-200 px-3 py-1.5 rounded-full hover:bg-neutral-50 shadow-sm text-neutral-500 font-medium"
                                         >
                                             Demo: End Session
                                         </button>

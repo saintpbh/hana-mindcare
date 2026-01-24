@@ -21,7 +21,7 @@ export async function getMonthlySchedule(year: number, month: number) {
     try {
         // Calculate start and end of the month
         const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999); // End of the last day
         const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
         // Query Session model instead of Client model
@@ -31,8 +31,9 @@ export async function getMonthlySchedule(year: number, month: number) {
                     gte: startDate,
                     lte: endDate
                 },
-                // Optionally filter out canceled if needed, or include them with status
-                // status: { not: 'Canceled' } // Let's include everything and handle in UI
+                status: {
+                    notIn: ['Canceled']
+                }
             },
             include: {
                 client: {
@@ -47,17 +48,20 @@ export async function getMonthlySchedule(year: number, month: number) {
             orderBy: { date: 'asc' }
         });
 
+        const KST_OFFSET = 9 * 60 * 60 * 1000;
+
         const events: CalendarEvent[] = sessions.map((s: any) => {
+            const kstDate = new Date(s.date.getTime() + KST_OFFSET);
             return {
                 id: s.id, // Now using Session ID (UUID)
                 title: `${s.client.name} - ${s.type}`,
-                date: s.date,
+                date: s.date, // Keep original Date object for date-fns in UI (client logic handles timezone conversion naturally)
                 type: 'session',
                 clientId: s.client.id,
                 clientName: s.client.name,
                 clientContact: s.client.contact,
-                nextSession: s.date.toISOString().split('T')[0], // derived
-                sessionTime: s.date.toISOString().split('T')[1].substring(0, 5), // HH:MM
+                nextSession: kstDate.toISOString().split('T')[0], // derived KST Date
+                sessionTime: kstDate.toISOString().split('T')[1].substring(0, 5), // derived KST Time
                 sessionType: s.type || 'session', // Map 'type' to 'sessionType'
                 location: s.client?.location || s.location || 'Center', // Use available location
                 status: (s.status || 'Scheduled').toLowerCase()

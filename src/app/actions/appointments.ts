@@ -49,22 +49,32 @@ export async function getAppointments(startDate: Date, endDate: Date) {
 }
 
 export async function getNextSession() {
+    const session = await requireAuth();
+
     try {
-        const session = await requireAuth();
-        const now = new Date();
         const nextSession = await prisma.session.findFirst({
             where: {
                 accountId: session.accountId,
-                date: { gte: now },
-                status: 'Scheduled'
+                status: 'Scheduled',
+                date: { gte: new Date() }
             },
+            orderBy: { date: 'asc' },
             include: {
                 client: true
-            },
-            orderBy: { date: 'asc' }
+            }
         });
 
-        if (!nextSession) return { success: true, data: null };
+        if (!nextSession) {
+            return { success: false, error: "No upcoming session found" };
+        }
+
+        // Calculate real session number (count of completed + scheduled sessions)
+        const sessionCount = await prisma.session.count({
+            where: {
+                clientId: nextSession.clientId,
+                status: { in: ['Completed', 'Scheduled'] }
+            }
+        });
 
         return {
             success: true,
@@ -78,8 +88,8 @@ export async function getNextSession() {
                 type: nextSession.type,
                 location: nextSession.location,
                 meetingLink: nextSession.meetingLink,
-                sessionNumber: 4, // Mock for now, or calc
-                totalSessions: 12, // Mock for now, or calc
+                sessionNumber: sessionCount,
+                totalSessions: nextSession.client.totalSessions || null,
                 keySignal: "Check Sleep Patterns", // Mock or from last note
                 signalDetail: "Client reported insomnia in last survey (PSQI Score: 14)." // Mock
             }
@@ -145,7 +155,17 @@ export async function createAppointment(data: {
             }
         });
 
+        // Update Client nextSession denormalized fields
+        await prisma.client.update({
+            where: { id: data.clientId },
+            data: {
+                nextSession: data.date,
+                sessionTime: data.time
+            }
+        });
+
         revalidatePath('/schedule');
+        revalidatePath('/');
         return { success: true, data: newSession };
     } catch (error) {
         console.error("Failed to create appointment:", error);
@@ -167,6 +187,7 @@ export async function updateAppointmentStatus(id: string, status: string) {
             data: { status }
         });
         revalidatePath('/schedule');
+        revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error("Failed to update status:", error);
@@ -174,7 +195,7 @@ export async function updateAppointmentStatus(id: string, status: string) {
     }
 }
 
-export async function updateAppointmentTime(id: string, newDate: Date, duration?: number) {
+export async function updateAppointmentTime(id: string, newDate: Date, duration?: number, dateString?: string, timeString?: string) {
     try {
         const session = await requireAuth();
 
@@ -194,7 +215,19 @@ export async function updateAppointmentTime(id: string, newDate: Date, duration?
             data: updateData
         });
 
+        // Update Client if dateString/timeString provided
+        if (dateString && timeString) {
+            await prisma.client.update({
+                where: { id: updatedSession.clientId },
+                data: {
+                    nextSession: dateString,
+                    sessionTime: timeString
+                }
+            });
+        }
+
         revalidatePath('/schedule');
+        revalidatePath('/');
         return { success: true, data: updatedSession };
     } catch (error) {
         console.error("Failed to update appointment time:", error);
@@ -202,7 +235,7 @@ export async function updateAppointmentTime(id: string, newDate: Date, duration?
     }
 }
 
-export async function checkAvailability(date: string) {
+export async function checkAvailability(date: string, counselorId?: string) {
     try {
         const startOfDay = new Date(`${date}T00:00:00`);
         const endOfDay = new Date(`${date}T23:59:59`);
@@ -215,7 +248,8 @@ export async function checkAvailability(date: string) {
                     gte: startOfDay,
                     lte: endOfDay
                 },
-                status: { not: 'Canceled' }
+                status: { not: 'Canceled' },
+                ...(counselorId ? { counselorId } : {})
             },
             include: {
                 client: { select: { name: true } }

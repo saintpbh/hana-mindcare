@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Check, Calendar as CalendarIcon, Clock, MapPin, Video, Phone, Timer, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 // import { type Client } from "@prisma/client";
@@ -21,6 +22,7 @@ const RECURRING_OPTIONS = [
 
 import { createAppointment } from "@/app/actions/appointments";
 
+
 interface ScheduleModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -28,6 +30,7 @@ interface ScheduleModalProps {
     client?: Client;
     selectedClient?: Client;
     rescheduleMode?: boolean;
+    rescheduleSessionId?: string; // Explicit ID for rescheduling
     initialDate?: Date;
 }
 
@@ -42,13 +45,20 @@ const DURATIONS = [
     { id: "100", label: "100분" },
 ];
 
-export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClient, rescheduleMode = false, initialDate }: ScheduleModalProps) {
+const toLocalISO = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClient, rescheduleMode = false, rescheduleSessionId, initialDate }: ScheduleModalProps) {
     const activeClient = client || selectedClient;
     // const { clients, updateClient } = usePersistence(); // Legacy
 
     const [locations, setLocations] = useState<string[]>([]);
     const [selectedDate, setSelectedDate] = useState<string>(
-        (initialDate ? initialDate.toISOString().split('T')[0] : activeClient?.nextSession) || new Date().toISOString().split('T')[0]
+        (initialDate ? toLocalISO(initialDate) : activeClient?.nextSession) || toLocalISO(new Date())
     );
     const [selectedTime, setSelectedTime] = useState<string>(activeClient?.sessionTime || "10:00");
     const [selectedLocation, setSelectedLocation] = useState<string>(activeClient?.location || "");
@@ -65,6 +75,9 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [sendSms, setSendSms] = useState(true);
+
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
 
     useEffect(() => {
         const loadCounselors = async () => {
@@ -97,7 +110,7 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
 
     useEffect(() => {
         if (isOpen && activeClient) {
-            setSelectedDate((initialDate ? initialDate.toISOString().split('T')[0] : activeClient.nextSession) || new Date().toISOString().split('T')[0]);
+            setSelectedDate((initialDate ? toLocalISO(initialDate) : activeClient.nextSession) || toLocalISO(new Date()));
             setSelectedTime(activeClient.sessionTime || "10:00");
             setSelectedLocation(activeClient.location || locations[0] || "");
             setSelectedType(activeClient.sessionType || "in-person");
@@ -110,13 +123,14 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     useEffect(() => {
         const fetchAvailability = async () => {
             const { checkAvailability } = await import("@/app/actions/appointments");
-            const res = await checkAvailability(selectedDate);
+            // Pass selectedCounselorId to check availability for that specific counselor
+            const res = await checkAvailability(selectedDate, selectedCounselorId);
             if (res.success) setBusySlots(res.data || []);
         };
         if (isOpen) fetchAvailability();
-    }, [selectedDate, isOpen]);
+    }, [selectedDate, isOpen, selectedCounselorId]); // Added selectedCounselorId dependency
 
-    if (!isOpen || !activeClient) return null;
+    if (!isOpen || !activeClient || !mounted) return null;
 
     const timeSlots = [
         "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"
@@ -132,27 +146,68 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
         if (!activeClient) return;
 
         try {
-            // Call Server Action
-            const result = await createAppointment({
-                clientId: activeClient.id,
-                date: selectedDate,
-                time: selectedTime,
-                type: selectedType,
-                duration: parseInt(selectedDuration),
-                notes: `Location: ${selectedLocation}`, // Store location in notes for now
-                recurring: selectedRecurring,
-                counselorId: selectedCounselorId,
-                location: selectedLocation // Pass explicit location field
-            });
+            // Check if this is reschedule mode
+            if (rescheduleMode && rescheduleSessionId) {
+                // Update existing session
+                const { updateAppointmentTime } = await import("@/app/actions/appointments");
+                const dateTime = new Date(`${selectedDate}T${selectedTime}`);
+
+                const result = await updateAppointmentTime(
+                    rescheduleSessionId, // Use explicit prop
+                    dateTime,
+                    parseInt(selectedDuration),
+                    selectedDate,        // Pass date string for Client update
+                    selectedTime         // Pass time string for Client update
+                );
+
+                if (result.success) {
+                    if (sendSms) {
+                        alert(`[Simulation] SMS sent to ${activeClient.name}: "Your appointment has been rescheduled to ${selectedDate} at ${selectedTime}."`);
+                    }
+                    if (onSuccess) onSuccess();
+                    onClose();
+                } else {
+                    alert(`Failed to reschedule appointment. ${result.error || ''}`);
+                }
+            } else {
+                // Create new appointment
+                const result = await createAppointment({
+                    clientId: activeClient.id,
+                    date: selectedDate,
+                    time: selectedTime,
+                    type: selectedType,
+                    duration: parseInt(selectedDuration),
+                    notes: `Location: ${selectedLocation}`, // Store location in notes for now
+                    recurring: selectedRecurring,
+                    counselorId: selectedCounselorId,
+                    location: selectedLocation // Pass explicit location field
+                });
+
+                if (result.success) {
+                    if (onSuccess) onSuccess();
+                    onClose();
+                } else {
+                    alert(`Failed to create appointment. ${result.error || ''}`);
+                }
+            }
+        } catch (error) {
+            alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!rescheduleSessionId) return;
+        if (!confirm("정말로 이 일정을 취소하시겠습니까? (Status: Canceled)")) return;
+
+        try {
+            const { updateAppointmentStatus } = await import("@/app/actions/appointments");
+            const result = await updateAppointmentStatus(rescheduleSessionId, 'Canceled');
 
             if (result.success) {
-                if (rescheduleMode && sendSms) {
-                    alert(`[Simulation] SMS sent to ${activeClient.name}: "Your appointment has been rescheduled to ${selectedDate} at ${selectedTime}."`);
-                }
                 if (onSuccess) onSuccess();
                 onClose();
             } else {
-                alert(`Failed to create appointment. ${result.error || ''}`);
+                alert(`Failed to cancel appointment. ${result.error || ''}`);
             }
         } catch (error) {
             alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -166,7 +221,7 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
 
     const days = Array.from({ length: daysInMonth }, (_, i) => {
         const d = new Date(currentYear, currentMonth, i + 1);
-        return d.toISOString().split('T')[0];
+        return toLocalISO(d);
     });
 
     const goToPreviousMonth = () => {
@@ -189,358 +244,313 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
 
     const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--color-midnight-navy)]/20 backdrop-blur-sm animate-in fade-in duration-200">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="bg-white w-full max-w-4xl rounded-[32px] shadow-2xl border border-[var(--color-midnight-navy)]/5 overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-auto max-h-[850px]"
-            >
-                {/* Left Side: Date & Options */}
-                <div className="flex-1 p-6 border-r border-gray-100 overflow-y-auto">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <h2 className="text-2xl font-serif text-[var(--color-midnight-navy)]">
-                                {rescheduleMode ? "일정 변경 (Reschedule)" : "상담 예약 설정"}
-                            </h2>
-                            <p className="text-sm text-[var(--color-midnight-navy)]/50">
-                                {activeClient.name} 내담자님의 {rescheduleMode ? "일정을 변경합니다." : "다음 일정을 설정합니다."}
-                            </p>
-                        </div>
-                        {rescheduleMode && (
-                            <div className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-bold border border-amber-100 flex items-center gap-1">
-                                <Timer className="w-3 h-3" /> 일정 변경 모드
+    const modalContent = (
+        <>
+            {/* Backdrop */}
+            <div
+                className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+                onClick={onClose}
+            />
+
+            {/* Modal Content */}
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white w-full max-w-4xl rounded-[32px] shadow-2xl border border-[var(--color-midnight-navy)]/5 overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-auto max-h-[850px] pointer-events-auto"
+                >
+                    {/* Left Side: Date & Options */}
+                    <div className="flex-1 p-6 border-r border-gray-100 overflow-y-auto">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 className="text-2xl font-serif text-[var(--color-midnight-navy)]">
+                                    {rescheduleMode ? "일정 변경 (Reschedule)" : "상담 예약 설정"}
+                                </h2>
+                                <p className="text-sm text-[var(--color-midnight-navy)]/50">
+                                    {activeClient.name} 내담자님의 {rescheduleMode ? "일정을 변경합니다." : "다음 일정을 설정합니다."}
+                                </p>
                             </div>
-                        )}
+                            {rescheduleMode && (
+                                <div className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-bold border border-amber-100 flex items-center gap-1">
+                                    <Timer className="w-3 h-3" /> 일정 변경 모드
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Date Selection */}
+                            <section>
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-4 block">1. 날짜 선택</label>
+
+                                {/* Month Navigation */}
+                                <div className="flex items-center justify-between mb-4">
+                                    <button
+                                        type="button"
+                                        onClick={goToPreviousMonth}
+                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <div className="text-sm font-bold text-[var(--color-midnight-navy)]">
+                                        {currentYear}년 {monthNames[currentMonth]}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={goToNextMonth}
+                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                                    {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+                                        <span key={d} className="text-[10px] font-bold text-gray-400">{d}</span>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-7 gap-1">
+                                    {Array(firstDayOfMonth).fill(null).map((_, i) => (
+                                        <div key={`empty-${i}`} />
+                                    ))}
+                                    {days.map(date => {
+                                        const isSelected = selectedDate === date;
+                                        const isToday = date === toLocalISO(new Date());
+                                        return (
+                                            <button
+                                                key={date}
+                                                type="button" // Prevent form submission
+                                                onClick={() => setSelectedDate(date)}
+                                                className={cn(
+                                                    "aspect-square rounded-xl flex flex-col items-center justify-center text-xs transition-all relative font-medium",
+                                                    isSelected ? "bg-[var(--color-midnight-navy)] text-white shadow-lg shadow-[var(--color-midnight-navy)]/30 scale-105 z-10" : "hover:bg-gray-50 text-gray-600",
+                                                    isToday && !isSelected && "text-[var(--color-midnight-navy)] font-bold bg-indigo-50"
+                                                )}
+                                            >
+                                                <span>{parseInt(date.split('-')[2])}</span>
+                                                {isToday && <div className="w-1 h-1 rounded-full bg-indigo-500 mt-1" />}
+                                                {isSelected && <motion.div layoutId="day-indicator" className="absolute inset-0 rounded-xl border-2 border-white/20" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            {/* Location */}
+                            <section>
+                                <div className="flex justify-between items-center mb-4">
+                                    <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest block">상담 장소</label>
+                                    {!isAddingLocation && (
+                                        <button onClick={() => setIsAddingLocation(true)} className="text-[10px] flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-bold bg-indigo-50 px-2 py-1 rounded-full">
+                                            <Plus className="w-3 h-3" /> 새 장소
+                                        </button>
+                                    )}
+                                </div>
+
+                                {isAddingLocation ? (
+                                    <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
+                                        <input
+                                            type="text"
+                                            value={newQuickLocation}
+                                            onChange={(e) => setNewQuickLocation(e.target.value)}
+                                            placeholder="새 장소 이름 (예: 강남센터)"
+                                            className="flex-1 p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                            autoFocus
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                if (newQuickLocation) {
+                                                    const res = await addLocation(newQuickLocation);
+                                                    if (res.success) {
+                                                        setLocations((prev) => [...prev, newQuickLocation]);
+                                                        setSelectedLocation(newQuickLocation);
+                                                        setNewQuickLocation("");
+                                                        setIsAddingLocation(false);
+                                                    }
+                                                }
+                                            }}
+                                            className="px-4 bg-[var(--color-midnight-navy)] text-white rounded-xl text-sm font-bold"
+                                        >
+                                            추가
+                                        </button>
+                                        <button
+                                            onClick={() => setIsAddingLocation(false)}
+                                            className="px-3 text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <select
+                                            value={selectedLocation}
+                                            onChange={(e) => setSelectedLocation(e.target.value)}
+                                            className="w-full p-4 pl-12 rounded-2xl border border-gray-100 bg-gray-50/50 appearance-none focus:outline-none focus:ring-2 focus:ring-[var(--color-midnight-navy)]/5 font-medium text-[var(--color-midnight-navy)] transition-all hover:bg-white hover:shadow-sm"
+                                        >
+                                            {locations.map(l => <option key={l} value={l}>{l}</option>)}
+                                        </select>
+                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 bg-[var(--color-midnight-navy)] text-white rounded-lg pointer-events-none">
+                                            <Plus className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
+
+                            {/* Counselor Selection */}
+                            <section>
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-4 block">담당 상담사</label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedCounselorId}
+                                        onChange={(e) => setSelectedCounselorId(e.target.value)}
+                                        className="w-full p-4 pl-4 rounded-2xl border border-gray-100 bg-gray-50/50 appearance-none focus:outline-none focus:ring-2 focus:ring-[var(--color-midnight-navy)]/5 font-medium text-[var(--color-midnight-navy)] transition-all hover:bg-white hover:shadow-sm"
+                                    >
+                                        <option value="">상담사 선택 (선택 안함)</option>
+                                        {counselors.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name} {c.nickname ? `(${c.nickname})` : ''}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Duration */}
+                            <section>
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-4 block">상담 시간(분)</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {DURATIONS.map(d => (
+                                        <button
+                                            key={d.id}
+                                            type="button"
+                                            onClick={() => setSelectedDuration(d.id)}
+                                            className={cn(
+                                                "py-3 rounded-xl text-sm font-bold transition-all border",
+                                                selectedDuration === d.id
+                                                    ? "bg-white border-[var(--color-midnight-navy)] text-[var(--color-midnight-navy)] shadow-sm"
+                                                    : "bg-transparent border-gray-100 text-gray-400 hover:bg-gray-50"
+                                            )}
+                                        >
+                                            {d.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
+
+                            {/* Recurring */}
+                            <section>
+                                <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-4 block">반복 설정</label>
+                                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                    {RECURRING_OPTIONS.map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            onClick={() => setSelectedRecurring(opt.id)}
+                                            className={cn(
+                                                "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors border",
+                                                selectedRecurring === opt.id
+                                                    ? "bg-[var(--color-midnight-navy)]/5 border-[var(--color-midnight-navy)] text-[var(--color-midnight-navy)]"
+                                                    : "bg-transparent border-transparent text-gray-400 hover:bg-gray-50"
+                                            )}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
                     </div>
 
-                    <div className="space-y-6">
-                        {/* Date Selection */}
-                        <section>
-                            <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-4 block">1. 날짜 선택</label>
 
-                            {/* Month Navigation */}
-                            <div className="flex items-center justify-between mb-4">
-                                <button
-                                    type="button"
-                                    onClick={goToPreviousMonth}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                    </svg>
-                                </button>
-                                <div className="text-sm font-bold text-[var(--color-midnight-navy)]">
-                                    {currentYear}년 {monthNames[currentMonth]}
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={goToNextMonth}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </button>
-                            </div>
+                    {/* Right Side: Time Slots & Summary */}
+                    <div className="w-full md:w-[320px] bg-gray-50 flex flex-col border-l border-gray-100">
+                        <div className="flex-1 p-6 overflow-y-auto">
+                            <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-4 block">2. 상세 시간 선택</label>
 
-                            <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                                {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-                                    <span key={d} className="text-[10px] font-bold text-gray-400">{d}</span>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-7 gap-2">
-                                {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} />)}
-                                {days.map(date => {
-                                    const isSelected = selectedDate === date;
-                                    const dayNum = date.split('-')[2];
-                                    const isToday = date === new Date().toISOString().split('T')[0];
-
-                                    // Calculate how many events on this day
-                                    // const dayEvents = clients.filter(c => c.nextSession === date && !c.isSessionCanceled); // Use appointments prop if available or mock
-                                    // simplified for this modal context which might just pick a date
+                            <div className="grid grid-cols-2 gap-3 mb-8">
+                                {timeSlots.map(time => {
+                                    const { status, name } = getSlotStatus(time);
+                                    const isSelected = selectedTime === time;
 
                                     return (
                                         <button
-                                            key={date}
-                                            onClick={() => setSelectedDate(date)}
+                                            key={time}
+                                            type="button"
+                                            disabled={status === "busy"}
+                                            onClick={() => setSelectedTime(time)}
                                             className={cn(
-                                                "aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all relative",
-                                                isSelected
-                                                    ? "bg-[var(--color-midnight-navy)] text-white shadow-lg scale-110 z-10"
-                                                    : "hover:bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]"
+                                                "relative p-4 rounded-2xl border text-center transition-all group",
+                                                status === "busy"
+                                                    ? "bg-gray-100 border-transparent text-gray-300 cursor-not-allowed"
+                                                    : isSelected
+                                                        ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-[1.02] z-10"
+                                                        : "bg-white border-transparent text-[var(--color-midnight-navy)] hover:border-gray-200 hover:shadow-md"
                                             )}
                                         >
-                                            <span className="mt-1">{dayNum}</span>
-                                            {isToday && !isSelected && (
-                                                <div className="absolute top-1 right-1 w-1 h-1 rounded-full bg-[var(--color-champagne-gold)]" />
+                                            <span className="block text-lg font-bold tracking-tight">{time}</span>
+                                            {status === "busy" ? (
+                                                <span className="block text-[10px] truncate mt-1 bg-gray-200 rounded-full py-0.5 px-2 mx-auto w-fit max-w-full">{name}</span>
+                                            ) : (
+                                                <span className={cn("block text-[10px] mt-1 font-medium transition-colors", isSelected ? "text-emerald-100" : "text-emerald-500 group-hover:text-emerald-600")}>
+                                                    {isSelected ? <Check className="w-3 h-3 mx-auto" /> : "예약 가능"}
+                                                </span>
                                             )}
+                                            {isSelected && <motion.div layoutId="time-indicator" className="absolute inset-0 rounded-2xl border-2 border-white/20" />}
                                         </button>
                                     );
                                 })}
                             </div>
-                        </section>
+                        </div>
 
-                        <section>
-                            <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block flex items-center gap-2">
-                                <MapPin className="w-3 h-3" /> 상담 장소
-                            </label>
-                            <div className="flex items-center gap-2">
-                                <select
-                                    value={selectedLocation}
-                                    onChange={(e) => setSelectedLocation(e.target.value)}
-                                    className="flex-1 p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]/50 text-sm font-medium text-[var(--color-midnight-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--color-midnight-navy)]/20"
-                                >
-                                    {locations.length > 0 ? (
-                                        locations.map(loc => <option key={loc} value={loc}>{loc}</option>)
-                                    ) : (
-                                        <option value="">장소 정보 없음 (설정에서 추가)</option>
-                                    )}
-                                </select>
-                                <AnimatePresence mode="wait">
-                                    {isAddingLocation ? (
-                                        <motion.div
-                                            initial={{ width: 0, opacity: 0 }}
-                                            animate={{ width: "auto", opacity: 1 }}
-                                            exit={{ width: 0, opacity: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="flex items-center gap-2 overflow-hidden"
-                                        >
-                                            <input
-                                                type="text"
-                                                value={newQuickLocation}
-                                                onChange={(e) => setNewQuickLocation(e.target.value)}
-                                                placeholder="새 장소 이름"
-                                                className="p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]/50 text-sm font-medium text-[var(--color-midnight-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--color-midnight-navy)]/20 w-32"
-                                            />
-                                            <button
-                                                onClick={async () => {
-                                                    if (newQuickLocation.trim()) {
-                                                        await addLocation(newQuickLocation.trim());
-                                                        await fetchLocs();
-                                                        setSelectedLocation(newQuickLocation.trim());
-                                                        setNewQuickLocation("");
-                                                        setIsAddingLocation(false);
-                                                    }
-                                                }}
-                                                className="p-3 bg-[var(--color-midnight-navy)] text-white rounded-xl text-sm font-bold"
-                                            >
-                                                추가
-                                            </button>
-                                            <button
-                                                onClick={() => setIsAddingLocation(false)}
-                                                className="p-3 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold"
-                                            >
-                                                취소
-                                            </button>
-                                        </motion.div>
-                                    ) : (
-                                        <motion.button
-                                            key="add-button"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            onClick={() => setIsAddingLocation(true)}
-                                            className="p-3 bg-[var(--color-midnight-navy)] text-white rounded-xl flex items-center justify-center"
-                                        >
-                                            <Plus className="w-5 h-5" />
-                                        </motion.button>
-                                    )}
-                                </AnimatePresence>
+                        {/* Footer Summary */}
+                        <div className="p-6 bg-white border-t border-gray-100">
+                            <div className="flex items-center gap-3 mb-6 bg-gray-50 p-4 rounded-2xl">
+                                <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center font-bold text-lg text-[var(--color-midnight-navy)]">
+                                    {parseInt(selectedDate.split('-')[1])}
+                                </div>
+                                <div>
+                                    <div className="font-bold text-[var(--color-midnight-navy)]">{activeClient.name}</div>
+                                    <p className="text-[10px] text-[var(--color-midnight-navy)]/40">{activeClient.englishName}</p>
+                                </div>
                             </div>
-                        </section>
+                            <div className="space-y-2 pt-3 border-t border-gray-50">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">최종 확인</span>
+                                    <span className="font-bold text-[var(--color-midnight-navy)]">{selectedDate} {selectedTime}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">장소</span>
+                                    <span className="font-medium text-[var(--color-midnight-navy)]">{selectedLocation}</span>
+                                </div>
+                            </div>
+                        </div>
 
-                        <section>
-                            <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block flex items-center gap-2">
-                                <Users className="w-3 h-3" /> 담당 상담사
-                            </label>
-                            <select
-                                value={selectedCounselorId}
-                                onChange={(e) => setSelectedCounselorId(e.target.value)}
-                                className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]/50 text-sm font-medium text-[var(--color-midnight-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--color-midnight-navy)]/20"
+                        <div className="flex gap-3 w-full">
+                            {rescheduleMode && (
+                                <button
+                                    onClick={handleDelete}
+                                    className="px-6 py-4 bg-red-50 text-red-500 rounded-2xl font-bold text-lg hover:bg-red-100 transition-all font-sans"
+                                >
+                                    취소
+                                </button>
+                            )}
+                            <button
+                                onClick={handleConfirm}
+                                className="flex-1 py-4 bg-[var(--color-midnight-navy)] text-white rounded-2xl font-bold text-lg shadow-xl shadow-[var(--color-midnight-navy)]/20 hover:brightness-110 active:scale-[0.98] transition-all"
                             >
-                                <option value="">상담사 선택 (선택 안함)</option>
-                                {counselors.map((c: any) => (
-                                    <option key={c.id} value={c.id}>{c.name} {c.nickname ? `(${c.nickname})` : ''}</option>
-                                ))}
-                            </select>
-                        </section>
-
-                        <section>
-                            <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block flex items-center gap-2">
-                                <Timer className="w-3 h-3" /> 상담 시간(분)
-                            </label>
-                            <div className="flex bg-[var(--color-warm-white)]/50 p-1 rounded-xl border border-[var(--color-midnight-navy)]/10">
-                                {DURATIONS.map(d => (
-                                    <button
-                                        key={d.id}
-                                        onClick={() => setSelectedDuration(d.id)}
-                                        className={cn(
-                                            "flex-1 py-2 rounded-lg text-xs font-bold transition-all",
-                                            selectedDuration === d.id ? "bg-white text-[var(--color-midnight-navy)] shadow-sm" : "text-gray-400"
-                                        )}
-                                    >
-                                        {d.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* New Recurring Section */}
-                        <section>
-                            <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block flex items-center gap-2">
-                                <Clock className="w-3 h-3" /> 반복 설정
-                            </label>
-                            <div className="flex bg-[var(--color-warm-white)]/50 p-1 rounded-xl border border-[var(--color-midnight-navy)]/10">
-                                {RECURRING_OPTIONS.map(opt => (
-                                    <button
-                                        key={opt.id}
-                                        onClick={() => setSelectedRecurring(opt.id)}
-                                        className={cn(
-                                            "flex-1 py-2 rounded-lg text-xs font-bold transition-all",
-                                            selectedRecurring === opt.id ? "bg-white text-[var(--color-midnight-navy)] shadow-sm" : "text-gray-400"
-                                        )}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-                    </div>
-
-                    <section>
-                        <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block">상담 방식</label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {TYPES.map(type => (
-                                <button
-                                    key={type.id}
-                                    onClick={() => setSelectedType(type.id)}
-                                    className={cn(
-                                        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all relative overflow-hidden",
-                                        selectedType === type.id
-                                            ? "bg-white border-[var(--color-midnight-navy)] shadow-md text-[var(--color-midnight-navy)]"
-                                            : "bg-[var(--color-warm-white)]/50 border-transparent text-gray-400 hover:border-[var(--color-midnight-navy)]/10"
-                                    )}
-                                >
-                                    <type.icon className="w-5 h-5" />
-                                    <span className="text-[10px] font-bold">{type.label}</span>
-                                    {type.id === 'online' && selectedType === 'online' && (
-                                        <div className="absolute top-0 right-0 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-bl-lg font-bold">
-                                            Zoom Auto
-                                        </div>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    </section>
-                </div >
-
-                {/* Right Side: Time Picker & Confirm */}
-                < div className="w-full md:w-[420px] bg-[var(--color-warm-white)]/30 p-6 flex flex-col overflow-y-auto" >
-                    <button
-                        onClick={onClose}
-                        className="self-end p-2 rounded-full hover:bg-black/5 text-gray-400 mb-4"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
-
-                    <label className="text-xs font-bold text-[var(--color-midnight-navy)]/40 uppercase tracking-widest mb-3 block">2. 상세 시간 선택</label>
-
-                    <div className="flex-1 grid grid-cols-3 gap-2 mb-6">
-                        {timeSlots.map(time => {
-                            const { status, name } = getSlotStatus(time);
-                            const isSelected = selectedTime === time;
-
-                            return (
-                                <button
-                                    key={time}
-                                    disabled={status === "busy"}
-                                    onClick={() => setSelectedTime(time)}
-                                    className={cn(
-                                        "p-4 rounded-2xl border transition-all relative overflow-hidden group",
-                                        status === "busy"
-                                            ? "bg-gray-100/50 border-gray-100 text-gray-300 cursor-not-allowed"
-                                            : isSelected
-                                                ? "bg-emerald-500 border-emerald-500 text-white shadow-lg scale-[1.02]"
-                                                : "bg-white border-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)] hover:border-[var(--color-midnight-navy)] shadow-sm"
-                                    )}
-                                >
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-base font-serif">{time}</span>
-                                        {status === "busy" ? (
-                                            <span className="text-[10px] font-medium opacity-60">일정 있음: {name}</span>
-                                        ) : (
-                                            <span className={cn("text-[10px] font-bold uppercase tracking-wider mt-1", isSelected ? "text-emerald-100" : "text-emerald-500")}>
-                                                {isSelected ? "선택됨" : "예약 가능"}
-                                            </span>
-                                        )}
-                                    </div>
-                                    {isSelected && <Check className="absolute top-2 right-2 w-3 h-3" />}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* Reschedule SMS Preview */}
-                    {
-                        rescheduleMode && (
-                            <div className="mb-6 animate-in slide-in-from-bottom-2">
-                                <label className="flex items-center gap-2 mb-2 cursor-pointer group">
-                                    <div className={cn("w-5 h-5 rounded-md flex items-center justify-center transition-colors", sendSms ? "bg-[var(--color-midnight-navy)] text-white" : "bg-gray-200 text-transparent")}>
-                                        <Check className="w-3 h-3" />
-                                    </div>
-                                    <input type="checkbox" checked={sendSms} onChange={(e) => setSendSms(e.target.checked)} className="hidden" />
-                                    <span className="text-sm font-bold text-[var(--color-midnight-navy)] group-hover:underline">내담자에게 변경 안내 문자 발송</span>
-                                </label>
-
-                                {sendSms && (
-                                    <div className="bg-white p-3 rounded-2xl border border-[var(--color-midnight-navy)]/10 text-xs text-gray-500 flex gap-3 relative">
-                                        <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <div className="font-bold text-[var(--color-midnight-navy)] mb-1">[하나 마인드케어] 예약 변경 안내</div>
-                                            {activeClient.name}님, 상담 일정이 아래와 같이 변경되었습니다.<br />
-                                            📅 {selectedDate} {selectedTime} <br />
-                                            📍 {selectedLocation}<br />
-                                            확인 부탁드립니다.
-                                        </div>
-                                        <div className="absolute top-2 right-3 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">Preview</div>
-                                    </div>
-                                )}
-                            </div>
-                        )
-                    }
-
-                    <div className="bg-white rounded-2xl p-4 border border-[var(--color-midnight-navy)]/5 shadow-sm mb-4">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full bg-[var(--color-midnight-navy)]/5 flex items-center justify-center font-serif text-[var(--color-midnight-navy)]">
-                                {activeClient.name[0]}
-                            </div>
-                            <div>
-                                <h4 className="font-bold text-[var(--color-midnight-navy)]">{activeClient.name}</h4>
-                                <p className="text-[10px] text-[var(--color-midnight-navy)]/40">{activeClient.englishName}</p>
-                            </div>
-                        </div>
-                        <div className="space-y-2 pt-3 border-t border-gray-50">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-400">최종 확인</span>
-                                <span className="font-bold text-[var(--color-midnight-navy)]">{selectedDate} {selectedTime}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-400">장소</span>
-                                <span className="font-medium text-[var(--color-midnight-navy)]">{selectedLocation}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleConfirm}
-                        className="w-full py-4 bg-[var(--color-midnight-navy)] text-white rounded-2xl font-bold text-lg shadow-xl shadow-[var(--color-midnight-navy)]/20 hover:brightness-110 active:scale-[0.98] transition-all"
-                    >
-                        {rescheduleMode ? "일정 변경 및 알림 발송" : "예약 완료하기"}
-                    </button>
-                </div >
-            </motion.div >
-        </div >
+                                {rescheduleMode ? "일정 변경 및 알림 발송" : "예약 완료하기"}
+                            </button>
+                        </div>                    </div>
+                </motion.div>
+            </div>
+        </>
     );
+
+    return createPortal(modalContent, document.body);
 }

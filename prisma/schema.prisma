@@ -199,6 +199,7 @@ model Client {
   location          String?
   isSessionCanceled Boolean   @default(false)
   terminatedAt      DateTime? // Date when counseling was terminated
+  totalSessions     Int?      // Total planned sessions for this client
   tags              String[]
   notes             String
   contact           String

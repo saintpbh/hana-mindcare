@@ -12,26 +12,32 @@ const ROW_HEIGHT = 80; // px per hour
 const COL_COUNT = 7;
 
 interface Appointment {
-    id: number;
+    id: string;
     title: string;
+    clientId: string; // Mandatory
     type: string;
     time: number;
     day: number;
     duration: number;
     color: string;
     location?: string;
-    rawDate?: string;
+    rawDate: string; // Mandatory in hook
+    status: string; // Mandatory
+    history: any[]; // Mandatory
+    meetingLink?: string;
+    notes?: string;
+    [key: string]: any;
 }
 
 interface CalendarViewProps {
     appointments: Appointment[];
-    setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
-    onEditAppointment: (id: number) => void;
+    setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>; // This might still mismatch if hooks use different type name, but structure should match
+    onEditAppointment: (id: string) => void;
     view: "day" | "week" | "month";
     currentDate?: Date;
     onDateChange?: (date: Date) => void;
-    onSelectAppointment?: (id: number) => void;
-    selectedAppointmentId?: number | null;
+    onSelectAppointment?: (id: string) => void;
+    selectedAppointmentId?: string | null;
 }
 
 export function CalendarView({
@@ -45,8 +51,8 @@ export function CalendarView({
     selectedAppointmentId
 }: CalendarViewProps) {
     const gridRef = useRef<HTMLDivElement>(null);
-    const [draggingId, setDraggingId] = useState<number | null>(null);
-    const [resizingId, setResizingId] = useState<number | null>(null);
+    const [draggingId, setDraggingId] = useState<string | null>(null);
+    const [resizingId, setResizingId] = useState<string | null>(null);
 
     const [dragPos, setDragPos] = useState<{ x: number, y: number } | null>(null);
 
@@ -86,20 +92,26 @@ export function CalendarView({
     const monthDays = generateMonthGrid(currentDate);
 
     // Handle Drag Start
-    const handleDragStart = (e: React.MouseEvent, id: number) => {
+    const handleDragStart = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         setDraggingId(id);
         setDragPos({ x: e.clientX, y: e.clientY }); // Init pos
     };
 
     // Handle Resize Start (Bottom Handle)
-    const handleResizeStart = (e: React.MouseEvent, id: number) => {
+    const handleResizeStart = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         setResizingId(id);
     };
 
     const formatDate = (date: Date) => {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+
+    const formatTime = (hoursFloat: number) => {
+        const h = Math.floor(hoursFloat);
+        const m = Math.round((hoursFloat % 1) * 60);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -206,7 +218,13 @@ export function CalendarView({
                 const mins = (appointment.time % 1) * 60;
                 newDate.setHours(hours, mins, 0, 0);
 
-                await updateAppointmentTime(appointment.id.toString(), newDate);
+                await updateAppointmentTime(
+                    appointment.id.toString(),
+                    newDate,
+                    undefined,
+                    formatDate(newDate),
+                    formatTime(appointment.time)
+                );
             }
             setDragOverDate(null);
         }
@@ -237,7 +255,13 @@ export function CalendarView({
                 targetDate.setHours(hours, mins, 0, 0);
 
                 // Server Update
-                await updateAppointmentTime(activeId.toString(), targetDate, appointment.duration);
+                await updateAppointmentTime(
+                    activeId.toString(),
+                    targetDate,
+                    appointment.duration,
+                    formatDate(targetDate),
+                    formatTime(appointment.time)
+                );
             }
         }
 
@@ -261,7 +285,7 @@ export function CalendarView({
         // We need to know for each appointment: width (%) and left (%)
         // A naive approach: if A and B overlap, width=50%, A.left=0%, B.left=50%
 
-        const layout: Record<number, { width: string, left: string }> = {};
+        const layout: Record<string, { width: string, left: string }> = {};
 
         // Find clusters of overlapping events
         const clusters: Appointment[][] = [];

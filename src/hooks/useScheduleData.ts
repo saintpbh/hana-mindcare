@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getAppointments } from "@/app/actions/appointments";
 
 export interface ScheduleAppointment {
-    id: number;
+    id: string;
     title: string;
     clientId: string;
     type: string;

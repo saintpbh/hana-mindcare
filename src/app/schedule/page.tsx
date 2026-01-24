@@ -26,7 +26,7 @@ export default function SchedulePage() {
     // View State
     const [currentView, setCurrentView] = useState<"day" | "week" | "month">("week");
     const [currentDate, setCurrentDate] = useState(new Date()); // Default to Today (System Time)
-    const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
+    const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
     // Data Hook (Phase 2 Refactor)
     const { appointments, setAppointments, isLoading, refresh } = useScheduleData(currentDate, currentView);
@@ -83,17 +83,96 @@ export default function SchedulePage() {
     };
 
 
-    const handleAddAppointment = (newApt: any) => {
-        setAppointments([...appointments, { ...newApt, id: Date.now() }]);
-        // In reality, this should call createClient
+    const handleAddAppointment = async (newApt: any) => {
+        // This is handled by IntakeWizard / QuickScheduleModal internal logic usually, or we can refresh
+        refresh();
     };
 
-    const handleUpdateAppointment = (updated: any) => {
-        setAppointments(prev => prev.map(apt => apt.id === updated.id ? updated : apt));
-        // In reality, this should call updateClient
+    const handleUpdateAppointment = async (updated: any) => {
+        try {
+            const { updateAppointmentTime } = await import("@/app/actions/appointments");
+
+            // Calculate Target Date logic to support day-of-week change
+            // 1. Find original appointment to identify the reference week
+            const original = appointments.find(a => a.id === updated.id);
+            if (!original) {
+                // Fallback if not found (should not happen)
+                console.error("Original appointment not found");
+                return;
+            }
+
+            // 2. Calculate the Monday of that week
+            const originalDate = new Date(original.rawDate);
+            const originalDayIndex = originalDate.getDay(); // 0(Sun) - 6(Sat)
+            // Adjust to Monday (1)
+            // If original was Sunday(0), we assume it belongs to the *previous* week or *coming* week?
+            // Standard ISO week starts Monday. 
+            // If original is Sun(0), Monday is -6 days away? No, Mon is +1.
+            // Let's align with the Modal's view. Modal shows Mon-Fri.
+            // If original is Sun(0), let's assume it's part of the week ending on Sun?
+            // Or use simple diff: Monday is Day 1.
+            // diff = 1 - originalDayIndex.
+            // If today is Mon(1), diff=0.
+            // If today is Tue(2), diff=-1.
+            // If today is Sun(0), diff=1 (Next day is Mon). That seems weird. Sun is usually end of week in KR?
+            // Let's stick to standard JS: Week starts Sunday(0).
+            // But business logic for "Weekly schedule" usually implies Mon-Fri work week.
+            // We'll trust that we stay in the SAME week.
+            // If original was Jan 24 (Sat), and we change to "Mon" (index 0 in Modal), we want Jan 19 (Mon)? Or Jan 26?
+            // Usually "Change to Monday" means the Monday of THIS week.
+            const currentDay = originalDate.getDay();
+            const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay; // If Sun(0), go back 6 days to Mon. Else go back to Mon.
+            const mondayDate = new Date(originalDate);
+            mondayDate.setDate(originalDate.getDate() + mondayOffset);
+
+            // 3. Calculate Target Date
+            // updated.day is index 0-4 (Mon-Fri) from Modal
+            const targetDate = new Date(mondayDate);
+            targetDate.setDate(mondayDate.getDate() + updated.day);
+
+            // 4. Set Time
+            const hours = Math.floor(updated.time);
+            const mins = Math.round((updated.time % 1) * 60);
+            targetDate.setHours(hours, mins, 0, 0);
+
+            // 5. Format Strings for Client Sync
+            const y = targetDate.getFullYear();
+            const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const d = String(targetDate.getDate()).padStart(2, '0');
+            const dateString = `${y}-${m}-${d}`;
+            const timeString = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+            const res = await updateAppointmentTime(
+                String(updated.id),
+                targetDate,
+                updated.duration,
+                dateString,
+                timeString
+            );
+
+            if (res.success) {
+                refresh();
+                setEditingAppointment(null);
+            } else {
+                alert("수정 실패: " + res.error);
+            }
+        } catch (e) { console.error(e); }
     };
 
-
+    const handleDeleteAppointment = async (id: number | string) => {
+        try {
+            const { updateAppointmentStatus } = await import("@/app/actions/appointments");
+            const res = await updateAppointmentStatus(String(id), 'Canceled');
+            if (res.success) {
+                refresh();
+                setEditingAppointment(null);
+            } else {
+                alert("삭제 실패: " + res.error);
+            }
+        } catch (e) {
+            alert("오류 발생");
+        }
+    }
 
     return (
         <div className="min-h-screen bg-[var(--color-warm-white)] p-8 overflow-hidden flex flex-col h-screen">
@@ -234,6 +313,7 @@ export default function SchedulePage() {
                 isOpen={!!editingAppointment}
                 onClose={() => setEditingAppointment(null)}
                 onSave={handleUpdateAppointment}
+                onDelete={handleDeleteAppointment}
                 appointment={editingAppointment}
             />
 

@@ -88,7 +88,9 @@ export function NextSessionCard({ refreshKey, onReschedule, onStatusChange }: Ne
                             </span>
                         </div>
                         <h3 className="text-2xl font-serif text-white mb-1 leading-tight">{session.clientName}</h3>
-                        <p className="text-sm text-white/60">{session.condition} • Session {session.sessionNumber}/{session.totalSessions}</p>
+                        <p className="text-sm text-white/60">
+                            {session.condition} • Session {session.sessionNumber}{session.totalSessions ? `/${session.totalSessions}` : ''}
+                        </p>
                     </div>
 
                     <div className="flex gap-2">
@@ -138,6 +140,13 @@ export function NextSessionCard({ refreshKey, onReschedule, onStatusChange }: Ne
                                         >
                                             <Clock4 className="w-4 h-4 text-amber-500" />
                                             세션 연기
+                                        </button>
+                                        <button
+                                            onClick={() => handleStatusUpdate('Canceled')}
+                                            className="w-full px-4 py-2.5 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                                        >
+                                            <XCircle className="w-4 h-4 text-gray-500" />
+                                            일정 취소
                                         </button>
                                         <div className="h-px bg-gray-100 my-1" />
                                         <button

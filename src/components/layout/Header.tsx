@@ -7,6 +7,7 @@ import { NotificationCenter } from "@/components/notifications/NotificationCente
 import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { SessionCountDisplay } from "./SessionCountDisplay";
 
 export function Header() {
     const { user, isAuthenticated, isLoading } = useAuth();
@@ -28,7 +29,7 @@ export function Header() {
                     <h1 className="text-2xl font-serif text-[var(--color-midnight-navy)]">
                         {isLoading ? "Loading..." : `Good Morning, ${user?.name || "Member"}`}
                     </h1>
-                    <p className="text-sm text-neutral-500">You have 3 sessions today</p>
+                    <SessionCountDisplay />
                 </div>
 
                 {/* Role Switcher (Demo Feature) */}

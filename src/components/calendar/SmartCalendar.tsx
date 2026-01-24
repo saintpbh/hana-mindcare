@@ -39,6 +39,7 @@ export function SmartCalendar({
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [selectedScheduleClient, setSelectedScheduleClient] = useState<Client | undefined>(undefined);
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [rescheduleSessionId, setRescheduleSessionId] = useState<string | undefined>(undefined);
 
     // Close menu on click outside
     useEffect(() => {
@@ -96,18 +97,7 @@ export function SmartCalendar({
                         // Use a timeout to not bombard immediately on load
                         setTimeout(() => {
                             const timeStr = format(event.date, 'a h:mm', { locale: ko });
-                            // alert is too intrusive for auto, use a console log or custom toast. 
-                            // user requested "auto send", so a toast is best. using alert for visibility in this demo.
-                            // Actually, let's just log and show a small custom notification if possible, but alert is surest way to show "it worked" for the user's "Verification".
-                            // I'll use a safer approach: standard browser notification or just a console log if I can't trigger toast easily without a library.
-                            // But wait, the user wants to SEE it.
                             console.log(`[Auto-SMS] Sending reminder to ${event.clientName}`);
-                            // Let's assume the user will see the toggle state interaction mostly. 
-                            // But to really impress, let's trigger a browser alert or non-blocking UI.
-                            // I'll stick to a console log + maybe a visual indicator in the UI? 
-                            // No, let's use the existing "Manual Text" toast logic if available.
-                            // I'll stick to not modifying too much. The "Manual" flow is the key request.
-                            // "If On, 30 min before auto send".
                         }, 2000);
                     }
                 }
@@ -236,12 +226,13 @@ export function SmartCalendar({
                                 className="space-y-4"
                             >
                                 {selectedDayEvents.map((event) => {
-                                    // Calculate simplistic status for visual demo
                                     const now = new Date();
                                     const eventEnd = new Date(event.date.getTime() + 50 * 60000); // 50 min duration
 
                                     let status = 'upcoming';
-                                    if (now >= event.date && now < eventEnd) {
+                                    if (event.status === 'no show') {
+                                        status = 'noshow';
+                                    } else if (now >= event.date && now < eventEnd) {
                                         status = 'current';
                                     } else if (now >= eventEnd) {
                                         status = 'completed';
@@ -257,7 +248,6 @@ export function SmartCalendar({
                                                 contact: event.clientContact,
                                                 createdAt: new Date(),
                                                 updatedAt: new Date(),
-                                                // Minimal mock to satisfy type
                                                 age: 0, gender: '', diagnosis: '', condition: '', note: '', notes: '', nextSession: '', sessionTime: '', isSessionCanceled: false, status: 'Active', terminatedAt: null, tags: []
                                             } as any);
                                             setIsMessageModalOpen(true);
@@ -274,8 +264,11 @@ export function SmartCalendar({
                                                 confirmText: "확인",
                                                 variant: "destructive"
                                             })) {
-                                                await updateClient(event.clientId!, { isSessionCanceled: true });
-                                                fetchEvents(); // Refresh
+                                                const { updateAppointmentStatus } = await import("@/app/actions/appointments");
+                                                const status = action === 'noshow' ? 'No Show' : 'Canceled';
+                                                await updateAppointmentStatus(event.id, status);
+                                                fetchEvents(); // Refresh Calendar widget
+                                                router.refresh(); // Refresh Page Data (UP NEXT card)
                                             }
                                         } else if (action === 'reschedule') {
                                             if (event.clientId && event.clientName) {
@@ -288,17 +281,10 @@ export function SmartCalendar({
                                                     location: event.location,
                                                     isSessionCanceled: false
                                                 } as any);
+                                                setRescheduleSessionId(event.id); // Set ID
                                                 setIsScheduleModalOpen(true);
                                                 setActiveMenuId(null);
                                             }
-                                        }
-                                    };
-
-                                    const getTypeLabel = (type?: string) => {
-                                        switch (type) {
-                                            case 'online': return '비대면(영상)';
-                                            case 'phone': return '전화 상담';
-                                            default: return '대면 상담';
                                         }
                                     };
 
@@ -331,13 +317,15 @@ export function SmartCalendar({
                                                     p-4 rounded-2xl border transition-all relative overflow-hidden group/card cursor-pointer
                                                     ${status === 'current'
                                                             ? "bg-[var(--color-midnight-navy)] text-white shadow-xl border-transparent transform scale-[1.02]"
-                                                            : "bg-white border-[var(--color-midnight-navy)]/5 hover:border-[var(--color-champagne-gold)]/50 hover:shadow-md"
+                                                            : status === 'noshow'
+                                                                ? "bg-red-50 border-red-100 hover:border-red-200"
+                                                                : "bg-white border-[var(--color-midnight-navy)]/5 hover:border-[var(--color-champagne-gold)]/50 hover:shadow-md"
                                                         }
                                                 `}>
                                                     <div className="flex justify-between items-start mb-2 relative z-10">
                                                         <div className="flex items-center gap-1.5">
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${status === 'current' ? "bg-white/10 text-white" : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/50"}`}>
-                                                                상담
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${status === 'current' ? "bg-white/10 text-white" : status === 'noshow' ? "bg-red-100 text-red-600" : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]/50"}`}>
+                                                                {status === 'noshow' ? '노쇼' : '상담'}
                                                             </span>
                                                             {status === 'current' && (
                                                                 <span className="flex items-center gap-1 text-[10px] font-bold text-[var(--color-champagne-gold)] animate-pulse">
@@ -460,9 +448,13 @@ export function SmartCalendar({
                 isOpen={isScheduleModalOpen}
                 onClose={() => {
                     setIsScheduleModalOpen(false);
+                    setRescheduleSessionId(undefined); // Reset
                     fetchEvents(); // Refresh in case of change
+                    router.refresh(); // Refresh Page Data
                 }}
                 client={selectedScheduleClient}
+                rescheduleMode={!!rescheduleSessionId}
+                rescheduleSessionId={rescheduleSessionId}
             />
         </div>
     );
