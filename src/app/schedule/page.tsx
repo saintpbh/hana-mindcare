@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Plus, Calendar, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IntakeWizard } from "@/components/schedule/IntakeWizard";
 import { CalendarView } from "@/components/schedule/CalendarView";
@@ -13,8 +13,10 @@ import { DayViewSidebar } from "@/components/schedule/DayViewSidebar";
 import { ClientSelectModal } from "@/components/schedule/ClientSelectModal";
 import { ExistingClientSearch } from "@/components/schedule/ExistingClientSearch";
 import { QuickScheduleModal } from "@/components/schedule/QuickScheduleModal";
+import { TrashModal } from "@/components/schedule/TrashModal";
 
 import { useScheduleData } from "@/hooks/useScheduleData";
+import { softDeleteAppointment } from "@/app/actions/appointments";
 
 export default function SchedulePage() {
     const [isIntakeOpen, setIsIntakeOpen] = useState(false);
@@ -23,6 +25,7 @@ export default function SchedulePage() {
     const [isQuickScheduleOpen, setIsQuickScheduleOpen] = useState(false);
     const [selectedClient, setSelectedClient] = useState<any>(null);
     const [editingAppointment, setEditingAppointment] = useState<any>(null);
+    const [isTrashOpen, setIsTrashOpen] = useState(false);
     // View State
     const [currentView, setCurrentView] = useState<"day" | "week" | "month">("week");
     const [currentDate, setCurrentDate] = useState(new Date()); // Default to Today (System Time)
@@ -93,8 +96,11 @@ export default function SchedulePage() {
         // In reality, this should call updateClient
     };
 
-    const handleDeleteAppointment = (id: number) => {
-        setAppointments(prev => prev.filter(apt => apt.id !== id));
+    const handleDeleteAppointment = async (id: number) => {
+        const result = await softDeleteAppointment(id.toString());
+        if (result.success) {
+            await refresh(); // Refresh data from server
+        }
     }
 
     return (
@@ -158,6 +164,15 @@ export default function SchedulePage() {
                         >
                             오늘
                         </button>
+
+                        <button
+                            onClick={() => setIsTrashOpen(true)}
+                            className="h-9 px-4 rounded-lg bg-white border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] text-xs font-medium hover:bg-[var(--color-midnight-navy)]/5 transition-colors shadow-sm flex items-center gap-2"
+                            title="휴지통"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            휴지통
+                        </button>
                     </div>
 
                     <button
@@ -205,6 +220,7 @@ export default function SchedulePage() {
                             appointment={selectedAppointment}
                             onClose={() => setSelectedAppointmentId(null)}
                             onEdit={(id) => setEditingAppointment(appointments.find(a => a.id === id))}
+                            onDelete={handleDeleteAppointment}
                         />
                     </aside>
                 ) : (
@@ -273,6 +289,14 @@ export default function SchedulePage() {
                 client={selectedClient}
                 onComplete={handleAddAppointment}
                 existingAppointments={appointments}
+            />
+
+            <TrashModal
+                isOpen={isTrashOpen}
+                onClose={() => {
+                    setIsTrashOpen(false);
+                    refresh(); // Refresh appointments after closing trash
+                }}
             />
         </div>
     );
