@@ -82,68 +82,6 @@ export default function SchedulePage() {
         setCurrentDate(new Date());
     };
 
-    useEffect(() => {
-        const fetchAppointments = async () => {
-            setIsLoading(true);
-
-            // Calculate range: First day of current month - 7 days, Last day of current month + 7 days
-            // This covers "month" view and "week" overlap
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            const startDate = new Date(year, month, 1);
-            startDate.setDate(startDate.getDate() - 7);
-
-            const endDate = new Date(year, month + 1, 0);
-            endDate.setDate(endDate.getDate() + 7);
-
-            const result = await getAppointments(startDate, endDate);
-
-            if (result.success && result.data) {
-                const mappedAppointments = result.data.map((session: any) => {
-                    const sessionDate = new Date(session.date); // Native Date handles UTC -> Local conversion automatically
-
-                    // Calculate float hour for Grid positioning (e.g., 14:30 -> 14.5)
-                    const hour = sessionDate.getHours() + (sessionDate.getMinutes() / 60);
-
-                    // Format time string for Display (e.g. "14:30")
-                    const timeStr = `${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}`;
-
-                    // Native YYYY-MM-DD for local date matching (Important: Do not use toISOString() split here, it converts back to UTC!)
-                    const year = sessionDate.getFullYear();
-                    const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
-                    const date = String(sessionDate.getDate()).padStart(2, '0');
-                    const rawDate = `${year}-${month}-${date}`;
-
-                    const day = sessionDate.getDay(); // 0=Sun, 1=Mon... Correct for Local Time.
-
-                    let color = "bg-teal-100 text-teal-900 border-teal-200"; // Stable/Ongoing
-                    if (session.status === 'Canceled') color = "bg-gray-100 text-gray-900 border-gray-200 opacity-50";
-                    if (session.type === 'intake' || session.title.includes('Intake') || session.title.includes('초기')) color = "bg-amber-100 text-amber-900 border-amber-200";
-
-                    return {
-                        id: session.id,
-                        title: session.client, // Client Name
-                        clientId: session.clientId,
-                        type: session.type, // "Intake", "Counseling", etc.
-                        time: hour, // Float
-                        day: day, // 0-6 (Sun-Sat)
-                        duration: session.duration || 1,
-                        color,
-                        location: session.location,
-                        meetingLink: session.meetingLink,
-                        rawDate: rawDate, // Use the locally calculated rawDate
-                        notes: session.notes,
-                        status: session.status,
-                        // History not available in list view, would need separate fetch on selection
-                        history: []
-                    };
-                });
-                setAppointments(mappedAppointments);
-            }
-            setIsLoading(false);
-        };
-        fetchAppointments();
-    }, [currentDate, currentView]); // Re-fetch when date or view changes
 
     const handleAddAppointment = (newApt: any) => {
         setAppointments([...appointments, { ...newApt, id: Date.now() }]);
