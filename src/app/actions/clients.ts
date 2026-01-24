@@ -44,10 +44,27 @@ export async function updateClient(id: string, data: Partial<Client>) {
         console.log('updateClient called with:', { id, data });
         const session = await requirePermission('client:update:all');
 
-        // Clean up empty string values that should be null/undefined for foreign keys
+        // Extract only the fields that can be updated
+        // Exclude: id, accountId, createdAt, updatedAt, sessions, quickNotes, counselor
+        const {
+            // Exclude these fields
+            id: _id,
+            accountId: _accountId,
+            createdAt: _createdAt,
+            updatedAt: _updatedAt,
+            sessions: _sessions,
+            quickNotes: _quickNotes,
+            counselor: _counselor,
+            // Include only updatable fields
+            ...updateData
+        } = data;
+
+        // Clean up empty string values for foreign keys
         const cleanedData = {
-            ...data,
-            counselorId: data.counselorId || undefined, // Convert empty string to undefined
+            ...updateData,
+            counselorId: updateData.counselorId || undefined,
+            englishName: updateData.englishName || null,
+            location: updateData.location || null,
         };
 
         console.log('Cleaned data:', cleanedData);
