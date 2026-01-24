@@ -275,7 +275,7 @@ export async function processIntake(data: {
     email: string,
     concern: string,
     notes: string,
-    selectedDay: string,
+    selectedDate: string, // Changed from selectedDay
     selectedTime: number,
     location: string,
     duration: number
@@ -301,15 +301,8 @@ export async function processIntake(data: {
             }
         });
 
-        // 2. Calculate Date (Target day in the CURRENT week)
-        const dayMap: Record<string, number> = { "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6, "Sun": 0 };
-        const targetDay = dayMap[data.selectedDay] || 1;
-
-        const now = new Date();
-        const currentDay = now.getDay();
-        const diff = targetDay - currentDay;
-        const targetDate = new Date(now);
-        targetDate.setDate(now.getDate() + diff);
+        // 2. Parse Date
+        const targetDate = new Date(data.selectedDate);
         targetDate.setHours(data.selectedTime, 0, 0, 0);
 
         // 3. Create Session

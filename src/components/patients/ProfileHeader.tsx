@@ -12,11 +12,12 @@ interface ProfileHeaderProps {
     onSchedule?: () => void;
     onEdit?: () => void;
     onMessage?: () => void;
-    onTerminate?: () => void; // New
-    onCareMessage?: () => void; // New
+    onTerminate?: () => void;
+    onCareMessage?: () => void;
+    onPayment?: () => void; // New
 }
 
-export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule, onEdit, onMessage, onTerminate, onCareMessage }: ProfileHeaderProps) {
+export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule, onEdit, onMessage, onTerminate, onCareMessage, onPayment }: ProfileHeaderProps) {
     const isTerminated = client.status === 'terminated';
     const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
@@ -183,6 +184,15 @@ export function ProfileHeader({ client, onStartSession, onPrescribe, onSchedule,
                                     <Calendar className="w-4 h-4" />
                                     예약하기
                                 </button>
+                                {onPayment && (
+                                    <button
+                                        onClick={onPayment}
+                                        className="col-span-2 py-3 px-4 bg-[var(--color-midnight-navy)]/5 border border-[var(--color-midnight-navy)]/10 text-[var(--color-midnight-navy)] rounded-xl font-medium hover:bg-[var(--color-midnight-navy)]/10 transition-colors flex items-center justify-center gap-2 text-sm"
+                                    >
+                                        <div className="w-4 h-4 flex items-center justify-center font-serif font-bold">$</div>
+                                        결제 및 정산
+                                    </button>
+                                )}
                             </div>
                         </>
                     ) : (

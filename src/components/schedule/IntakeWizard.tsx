@@ -1,20 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { User, Activity, Calendar as CalendarIcon, Check, ChevronRight, X, Clock, AlertCircle } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { User, Activity, Calendar as CalendarIcon, Check, ChevronRight, ChevronLeft, X, Clock, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getLocations, addLocation } from "@/app/actions/locations";
-import { useEffect } from "react";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { checkAvailability } from "@/app/actions/appointments";
 
 interface IntakeWizardProps {
     isOpen: boolean;
     onClose: () => void;
     onComplete: (data: any) => void;
-    existingAppointments: any[];
+    existingAppointments?: any[]; // Made optional
 }
 
-export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments }: IntakeWizardProps) {
+export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments = [] }: IntakeWizardProps) {
     const [step, setStep] = useState(1);
     const totalSteps = 3;
 
@@ -24,10 +26,18 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
     const [email, setEmail] = useState("");
     const [concern, setConcern] = useState("불안 (Anxiety)");
     const [notes, setNotes] = useState("");
-    const [selectedDay, setSelectedDay] = useState("Mon");
+
+    // Calendar State
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedTime, setSelectedTime] = useState("10");
     const [location, setLocation] = useState("");
     const [savedLocations, setSavedLocations] = useState<string[]>([]);
+
+    // Server Availability State
+    const [isChecking, setIsChecking] = useState(false);
+    const [isTimeSlotTaken, setIsTimeSlotTaken] = useState(false);
+    const [busySlots, setBusySlots] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchLocs = async () => {
@@ -39,19 +49,40 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
         fetchLocs();
     }, []);
 
-    const dayMap: Record<string, number> = { "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4 };
+    const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+    const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+    const onDateClick = (day: Date) => setSelectedDate(day);
 
-    // Check for conflicts
-    const isTimeSlotTaken = useMemo(() => {
-        const dayIndex = dayMap[selectedDay];
-        const timeIndex = parseInt(selectedTime);
+    // Calendar Generation
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart);
+    const endDate = endOfWeek(monthEnd);
+    const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
-        return existingAppointments.some(apt => {
-            // Simple overlap check (assuming 1 hour slots for now for simplicity of the check)
-            // A real robust check would consider duration, but this suffices for the grid logic
-            return apt.day === dayIndex && Math.abs(apt.time - timeIndex) < 1;
-        });
-    }, [selectedDay, selectedTime, existingAppointments]);
+    // Check availability when date or time changes
+    useEffect(() => {
+        const check = async () => {
+            setIsChecking(true);
+            const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+            // Call server action
+            const res = await checkAvailability(dateStr);
+
+            if (res.success && res.data) {
+                // busySlots: { time: "HH:MM", ... }
+                setBusySlots(res.data);
+                const hour = parseInt(selectedTime);
+                const isBusy = res.data.some((slot: any) => {
+                    const slotHour = parseInt(slot.time.split(':')[0]);
+                    return Math.abs(slotHour - hour) < 1;
+                });
+                setIsTimeSlotTaken(isBusy);
+            }
+            setIsChecking(false);
+        };
+        check();
+    }, [selectedDate, selectedTime]);
 
     const handleNext = () => setStep((s) => Math.min(s + 1, totalSteps));
 
@@ -64,7 +95,7 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
             email,
             concern,
             notes,
-            selectedDay,
+            selectedDate: format(selectedDate, 'yyyy-MM-dd'), // Send Date String
             selectedTime: parseInt(selectedTime),
             location,
             duration: 1
@@ -207,78 +238,102 @@ export function IntakeWizard({ isOpen, onClose, onComplete, existingAppointments
                         {step === 3 && (
                             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                 <div className="text-center mb-6">
-                                    <div className="w-16 h-16 bg-[var(--color-champagne-gold)]/10 rounded-full flex items-center justify-center mx-auto text-[var(--color-champagne-gold)] mb-2">
-                                        <CalendarIcon className="w-8 h-8" />
-                                    </div>
-                                    <h3 className="text-lg font-medium text-[var(--color-midnight-navy)]">첫 세션 예약</h3>
-                                    <p className="text-sm text-[var(--color-midnight-navy)]/60">{name || "내담자"}님의 초기 면담 일정을 선택하세요.</p>
+                                    <h3 className="text-lg font-medium text-[var(--color-midnight-navy)]">일정 선택</h3>
+                                    <p className="text-sm text-[var(--color-midnight-navy)]/60">내담자와의 초기 면담 일정을 선택하세요.</p>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">요일 (Day)</label>
-                                        <select
-                                            value={selectedDay}
-                                            onChange={(e) => setSelectedDay(e.target.value)}
-                                            className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)]"
-                                        >
-                                            <option value="Mon">월요일</option>
-                                            <option value="Tue">화요일</option>
-                                            <option value="Wed">수요일</option>
-                                            <option value="Thu">목요일</option>
-                                            <option value="Fri">금요일</option>
-                                        </select>
+                                <div className="space-y-4">
+                                    {/* Calendar Header */}
+                                    <div className="flex items-center justify-between px-2">
+                                        <h4 className="font-bold text-[var(--color-midnight-navy)]">
+                                            {format(currentMonth, 'yyyy년 M월', { locale: ko })}
+                                        </h4>
+                                        <div className="flex gap-1">
+                                            <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft className="w-4 h-4" /></button>
+                                            <button onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded-full"><ChevronRight className="w-4 h-4" /></button>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2 relative">
-                                        <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">시간 (Time)</label>
-                                        <CustomTimeSelect
-                                            value={selectedTime}
-                                            onChange={setSelectedTime}
-                                            dayIndex={dayMap[selectedDay]}
-                                            existingAppointments={existingAppointments}
-                                        />
+
+                                    {/* Calendar Grid */}
+                                    <div className="bg-white rounded-2xl border border-[var(--color-midnight-navy)]/10 p-3">
+                                        <div className="grid grid-cols-7 mb-2 text-center text-xs font-medium text-gray-500">
+                                            {['일', '월', '화', '수', '목', '금', '토'].map(d => <div key={d}>{d}</div>)}
+                                        </div>
+                                        <div className="grid grid-cols-7 gap-1">
+                                            {calendarDays.map((day) => {
+                                                const isSelected = isSameDay(day, selectedDate);
+                                                const isCurrentMonth = isSameMonth(day, currentMonth);
+                                                const dayIsToday = isToday(day);
+
+                                                return (
+                                                    <button
+                                                        key={day.toISOString()}
+                                                        onClick={() => onDateClick(day)}
+                                                        className={cn(
+                                                            "h-9 w-9 rounded-full flex items-center justify-center text-sm transition-all relative",
+                                                            !isCurrentMonth && "text-gray-300",
+                                                            isSelected ? "bg-[var(--color-midnight-navy)] text-white font-bold shadow-md" : "hover:bg-gray-100",
+                                                            dayIsToday && !isSelected && "ring-1 ring-[var(--color-midnight-navy)] font-bold text-[var(--color-midnight-navy)]"
+                                                        )}
+                                                    >
+                                                        {format(day, 'd')}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Location Input */}
-                                <div className="space-y-2 relative">
-                                    <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">상담 장소 (Location @)</label>
-                                    <LocationInput
-                                        value={location}
-                                        onChange={setLocation}
-                                        onSave={async (loc) => {
-                                            if (!savedLocations.includes(loc)) {
-                                                const res = await addLocation(loc);
-                                                if (res.success) {
-                                                    setSavedLocations([...savedLocations, loc]);
-                                                }
-                                            }
-                                        }}
-                                        suggestions={savedLocations}
-                                    />
-                                </div>
+                                    {/* Time and Location */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2 relative">
+                                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">시간 (Time)</label>
+                                            <CustomTimeSelect
+                                                value={selectedTime}
+                                                onChange={setSelectedTime}
+                                                busySlots={[]} // Will rely on server check logic implicitly via parent effect
+                                                isChecking={isChecking}
+                                            />
+                                        </div>
+                                        <div className="space-y-2 relative">
+                                            <label className="text-xs font-bold text-[var(--color-midnight-navy)] uppercase tracking-wider">장소</label>
+                                            <LocationInput
+                                                value={location}
+                                                onChange={setLocation}
+                                                onSave={async (loc) => {
+                                                    if (!savedLocations.includes(loc)) {
+                                                        const res = await addLocation(loc);
+                                                        if (res.success) setSavedLocations([...savedLocations, loc]);
+                                                    }
+                                                }}
+                                                suggestions={savedLocations}
+                                            />
+                                        </div>
+                                    </div>
 
-                                {/* Status Message */}
-                                <div className={cn(
-                                    "flex items-center gap-2 p-4 rounded-xl text-sm transition-colors",
-                                    isTimeSlotTaken
-                                        ? "bg-red-50 text-red-600 border border-red-100"
-                                        : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]"
-                                )}>
-                                    {isTimeSlotTaken ? (
-                                        <>
-                                            <AlertCircle className="w-4 h-4 shrink-0" />
-                                            <span><strong>예약 불가:</strong> 선택하신 시간대는 이미 예약이 있습니다.</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Clock className="w-4 h-4 shrink-0" />
-                                            <span>
-                                                <strong>{selectedDay} {selectedTime}:00</strong>에 <strong>초기 면담</strong> 일정을 잡습니다.
-                                                {location && <span className="block text-xs mt-1 text-[var(--color-midnight-navy)]/60">@ {location}</span>}
-                                            </span>
-                                        </>
-                                    )}
+                                    {/* Status Message */}
+                                    <div className={cn(
+                                        "flex items-center gap-2 p-4 rounded-xl text-sm transition-colors",
+                                        isChecking ? "bg-gray-50" : isTimeSlotTaken ? "bg-red-50 text-red-600 border border-red-100" : "bg-[var(--color-midnight-navy)]/5 text-[var(--color-midnight-navy)]"
+                                    )}>
+                                        {isChecking ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                                                <span>가능 여부 확인 중...</span>
+                                            </>
+                                        ) : isTimeSlotTaken ? (
+                                            <>
+                                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                                <span><strong>예약 불가:</strong> 선택하신 시간대는 이미 예약이 있습니다.</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Clock className="w-4 h-4 shrink-0" />
+                                                <span>
+                                                    <strong>{format(selectedDate, 'M월 d일 (EEE)', { locale: ko })} {selectedTime}:00</strong>에 <strong>초기 면담</strong> 일정을 잡습니다.
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </motion.div>
                         )}
@@ -371,19 +426,22 @@ function LocationInput({ value, onChange, onSave, suggestions }: { value: string
     );
 }
 
-function CustomTimeSelect({ value, onChange, dayIndex, existingAppointments }: {
+function CustomTimeSelect({ value, onChange, busySlots, isChecking }: {
     value: string;
     onChange: (val: string) => void;
-    dayIndex: number;
-    existingAppointments: any[]
+    busySlots: any[];
+    isChecking: boolean;
 }) {
     const [isOpen, setIsOpen] = useState(false);
 
-    // 9AM to 5PM
-    const options = [9, 10, 11, 12, 13, 14, 15, 16, 17];
+    // 9AM to 5PM (extended to 9PM)
+    const options = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
     const isTaken = (hour: number) => {
-        return existingAppointments.some(apt => apt.day === dayIndex && Math.abs(apt.time - hour) < 1);
+        return busySlots.some(slot => {
+            const slotHour = parseInt(slot.time.split(':')[0]);
+            return Math.abs(slotHour - hour) < 1;
+        });
     };
 
     return (
@@ -392,7 +450,10 @@ function CustomTimeSelect({ value, onChange, dayIndex, existingAppointments }: {
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full p-3 rounded-xl border border-[var(--color-midnight-navy)]/10 bg-[var(--color-warm-white)] text-left flex items-center justify-between"
             >
-                <span>{value}:00 {parseInt(value) >= 12 ? 'PM' : 'AM'}</span>
+                <div className="flex items-center gap-2">
+                    <span>{value}:00 {parseInt(value) >= 12 ? 'PM' : 'AM'}</span>
+                    {isChecking && <span className="text-xs text-gray-400 animate-pulse">(checking...)</span>}
+                </div>
                 <ChevronRight className={cn("w-4 h-4 transition-transform", isOpen && "rotate-90")} />
             </button>
 
@@ -418,11 +479,11 @@ function CustomTimeSelect({ value, onChange, dayIndex, existingAppointments }: {
                                         className={cn(
                                             "w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-midnight-navy)]/5 transition-colors flex items-center justify-between",
                                             value === hour.toString() && "bg-[var(--color-midnight-navy)]/5 font-medium",
-                                            busy ? "text-red-500" : "text-[var(--color-midnight-navy)]"
+                                            busy ? "text-red-500 bg-red-50/50" : "text-[var(--color-midnight-navy)]"
                                         )}
                                     >
                                         <span>{hour}:00 {hour >= 12 ? 'PM' : 'AM'}</span>
-                                        {busy && <span className="text-[10px] uppercase font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Busy</span>}
+                                        {busy && <span className="text-[10px] uppercase font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">예약됨</span>}
                                     </button>
                                 );
                             })}

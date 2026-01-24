@@ -33,15 +33,15 @@ export function NewClientModal({ isOpen, onClose, onRegister, initialData }: New
     const [counselors, setCounselors] = useState<any[]>([]);
     const [counselorId, setCounselorId] = useState("");
 
-    useState(() => {
-        if (typeof window !== "undefined") {
-            import("@/app/actions/counselors").then(({ getCounselors }) => {
-                getCounselors().then(res => {
-                    if (res.success) setCounselors(res.data || []);
-                });
+    useEffect(() => {
+        let isMounted = true;
+        import("@/app/actions/counselors").then(({ getCounselors }) => {
+            getCounselors().then(res => {
+                if (isMounted && res.success) setCounselors(res.data || []);
             });
-        }
-    });
+        });
+        return () => { isMounted = false; };
+    }, []);
 
     // Reset state when opening with new initialData
     // (In a real app, use useEffect to sync initialData changes if needed, but here simple init is okay as modal remounts or we can add useEffect if needed)

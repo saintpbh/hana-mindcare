@@ -16,6 +16,8 @@ import { useState } from "react";
 
 import { IntakeQueueWidget } from "@/components/dashboard/IntakeQueueWidget";
 import { NextSessionCard } from "@/components/dashboard/NextSessionCard";
+import { IntakeWizard } from "@/components/schedule/IntakeWizard";
+import { useRouter } from "next/navigation";
 
 export function DashboardPage({ data, recentNotes, clients }: { data: any, recentNotes: any[], clients: any[] }) {
     const { role } = useUserRole();
@@ -23,14 +25,41 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [scheduleClient, setScheduleClient] = useState<any>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+    const router = useRouter();
 
     const triggerRefresh = () => setRefreshKey(prev => prev + 1);
+
+    const handleQuickAction = (action: string) => {
+        if (action === 'intake') {
+            setIsIntakeOpen(true);
+        }
+    };
+
+    const handleIntakeComplete = async (data: any) => {
+        try {
+            const { processIntake } = await import("@/app/actions/appointments");
+            const res = await processIntake(data);
+            if (res.success) {
+                triggerRefresh();
+                router.refresh();
+                // setIsIntakeOpen(false); // Already closed by Wizard internal logic or prop? 
+                // Wizard calls onComplete then onClose if we don't control it differently.
+                // Actually Wizard calls onClose() internally. 
+            } else {
+                alert("접수 실패: " + res.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("오류 발생");
+        }
+    };
 
     return (
         <div className="flex min-h-screen bg-[var(--color-warm-white)] flex-col lg:flex-row">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0">
-                <Header />
+                <Header onQuickAction={handleQuickAction} />
                 <main className="flex-1 p-4 lg:p-10 overflow-auto">
                     <div className="max-w-7xl mx-auto">
 
@@ -79,6 +108,13 @@ export function DashboardPage({ data, recentNotes, clients }: { data: any, recen
                                 onSuccess={triggerRefresh}
                             />
                         )}
+
+                        <IntakeWizard
+                            isOpen={isIntakeOpen}
+                            onClose={() => setIsIntakeOpen(false)}
+                            onComplete={handleIntakeComplete}
+                            existingAppointments={[]} // Dashboard doesn't have list readily, but Wizard relies on server check now
+                        />
 
                         {/* Admin View: Stat Cards Row */}
                         {role === 'admin' && (

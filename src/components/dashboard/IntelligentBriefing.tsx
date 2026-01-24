@@ -12,9 +12,10 @@ import { useAuth } from "@/hooks/useAuth";
 interface BriefingProps {
     className?: string;
     clients: Client[];
+    sessionCount?: number;
 }
 
-export function IntelligentBriefing({ className, clients }: BriefingProps) {
+export function IntelligentBriefing({ className, clients, sessionCount = 0 }: BriefingProps) {
     const { user } = useAuth();
     const [greeting, setGreeting] = useState("안녕하세요");
     const [currentTime, setCurrentTime] = useState("");

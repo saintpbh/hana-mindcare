@@ -3,6 +3,7 @@ import { SessionTabs } from "@/components/sessions/SessionTabs";
 import { ArrowLeft, Calendar, FileText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SessionPaymentStatus } from "@/components/sessions/SessionPaymentStatus";
 
 interface PageProps {
     params: Promise<{ id: string; sessionId: string }>;
@@ -23,7 +24,7 @@ export default async function SessionDetailPage({ params }: PageProps) {
         return notFound();
     }
 
-    const session = result.data;
+    const session = result.data as any;
     const clientName = session.client?.name || "Unknown Client";
 
     return (
@@ -46,6 +47,7 @@ export default async function SessionDetailPage({ params }: PageProps) {
                         <h1 className="text-2xl font-serif text-[var(--color-midnight-navy)]">{session.title}</h1>
                     </div>
                 </div>
+                <SessionPaymentStatus session={session} clientId={id} />
             </header>
 
             {/* Main Content */}

@@ -108,6 +108,7 @@ model Account {
 
   @@index([type])
   @@index([plan])
+  transactions Transaction[]
 }
 
 model Member {
@@ -231,6 +232,7 @@ model Client {
 
   @@index([accountId])
   @@index([accountId, status])
+  transactions Transaction[]
 }
 
 model Mood {
@@ -315,6 +317,7 @@ model Session {
   updatedAt DateTime @updatedAt
   account   Account  @relation(fields: [accountId], references: [id])
   accountId String
+  transactions Transaction[]
 }
 
 model CounselingLog {
@@ -511,4 +514,35 @@ model Template {
 
   @@index([userId, type])
   @@index([category])
+}
+
+// ============================================
+// Payment System Models
+// ============================================
+
+model Transaction {
+  id        String   @id @default(uuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  sessionId String? 
+  session   Session? @relation(fields: [sessionId], references: [id])
+
+  type      String   // 'payment' (deposit), 'charge' (deduction), 'refund'
+  amount    Int      // Positive value. Logic: Balance = Payments - Charges
+  method    String?  // 'cash', 'transfer', 'card'
+  date      DateTime @default(now())
+  
+  status    String   @default("completed") // 'pending', 'completed', 'canceled'
+  note      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId])
+  @@index([clientId])
+  @@index([sessionId])
 }

@@ -10,6 +10,7 @@ import { EditClientModal } from "@/components/patients/EditClientModal";
 import { MessageModal } from "@/components/patients/MessageModal";
 import { ScheduleModal } from "@/components/patients/ScheduleModal";
 import { MobileAccessControl } from "@/components/patients/MobileAccessControl";
+import { PaymentHistory } from "@/components/patients/PaymentHistory";
 import { getClientWithHistory, updateClient, terminateClient, deleteQuickNote, restoreQuickNote } from "@/app/actions/clients";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -34,6 +35,7 @@ export default function PatientPage() {
     const { confirm } = useConfirm();
     const [client, setClient] = useState<ClientWithSessions | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [activeTab, setActiveTab] = useState<'overview' | 'payment'>('overview');
     const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
     const [isPrescribeOpen, setIsPrescribeOpen] = useState(false);
@@ -158,154 +160,182 @@ export default function PatientPage() {
                     onMessage={() => setIsMessageOpen(true)}
                     onTerminate={handleTerminate}
                     onCareMessage={handleCareMessage}
+                    onPayment={() => setActiveTab('payment')}
                 />
 
+                {/* Tabs */}
+                <div className="flex border-b border-[var(--color-midnight-navy)]/10">
+                    <button
+                        onClick={() => setActiveTab('overview')}
+                        className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === 'overview'
+                            ? 'border-[var(--color-midnight-navy)] text-[var(--color-midnight-navy)]'
+                            : 'border-transparent text-gray-400 hover:text-[var(--color-midnight-navy)]'
+                            }`}
+                    >
+                        개요 (Overview)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('payment')}
+                        className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === 'payment'
+                            ? 'border-[var(--color-midnight-navy)] text-[var(--color-midnight-navy)]'
+                            : 'border-transparent text-gray-400 hover:text-[var(--color-midnight-navy)]'
+                            }`}
+                    >
+                        결제 및 정산 (Payment & Billing)
+                    </button>
+                </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left: Mood & Stats */}
-                    <div className="space-y-8">
-                        <MoodCalendar clientId={client.id} />
+                {activeTab === 'payment' ? (
+                    <div className="max-w-4xl mx-auto">
+                        <PaymentHistory clientId={client.id} />
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Left: Mood & Stats */}
+                        <div className="space-y-8">
+                            <MoodCalendar clientId={client.id} />
 
-                        <div className="bg-white rounded-2xl p-6 border border-[var(--color-midnight-navy)]/5 shadow-sm">
-                            <h3 className="font-semibold text-[var(--color-midnight-navy)] mb-4">참여 통계 (Engagement)</h3>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--color-midnight-navy)]/60">총 세션 횟수</span>
-                                    <span className="font-medium text-[var(--color-midnight-navy)]">
-                                        {client.sessions?.length || 0}회
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--color-midnight-navy)]/60">결석 (No-show)</span>
-                                    <span className="font-medium text-[var(--color-midnight-navy)]">0회</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--color-midnight-navy)]/60">평균 세션 시간</span>
-                                    <span className="font-medium text-[var(--color-midnight-navy)]">50분</span>
+                            <div className="bg-white rounded-2xl p-6 border border-[var(--color-midnight-navy)]/5 shadow-sm">
+                                <h3 className="font-semibold text-[var(--color-midnight-navy)] mb-4">참여 통계 (Engagement)</h3>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[var(--color-midnight-navy)]/60">총 세션 횟수</span>
+                                        <span className="font-medium text-[var(--color-midnight-navy)]">
+                                            {client.sessions?.length || 0}회
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[var(--color-midnight-navy)]/60">결석 (No-show)</span>
+                                        <span className="font-medium text-[var(--color-midnight-navy)]">0회</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[var(--color-midnight-navy)]/60">평균 세션 시간</span>
+                                        <span className="font-medium text-[var(--color-midnight-navy)]">50분</span>
+                                    </div>
                                 </div>
                             </div>
+
+                            <MobileAccessControl
+                                client={client}
+                                onMessageClick={() => setIsMessageOpen(true)}
+                                onUpdate={(updated) => setClient((prev: any) => prev ? { ...prev, ...updated } : null)}
+                            />
                         </div>
 
-                        <MobileAccessControl
-                            client={client}
-                            onMessageClick={() => setIsMessageOpen(true)}
-                            onUpdate={(updated) => setClient((prev: any) => prev ? { ...prev, ...updated } : null)}
-                        />
-                    </div>
+                        {/* Right: Session History & Notes */}
+                        <div className="lg:col-span-2 space-y-8">
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-[var(--color-midnight-navy)] text-lg">최근 세션 기록 (History)</h3>
 
-                    {/* Right: Session History & Notes */}
-                    <div className="lg:col-span-2 space-y-8">
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-[var(--color-midnight-navy)] text-lg">최근 세션 기록 (History)</h3>
-
-                            {(!client.sessions || client.sessions.length === 0) ? (
-                                <div className="text-center py-10 text-gray-500">기록된 세션이 없습니다.</div>
-                            ) : (
-                                <>
-                                    {client.sessions.slice(0, isHistoryExpanded ? undefined : 4).map((session: any) => (
-                                        <Link key={session.id} href={`/patients/${client.id}/sessions/${session.id}`} className="block group">
-                                            <div className="bg-white p-5 rounded-xl border border-[var(--color-midnight-navy)]/5 shadow-sm hover:border-[var(--color-champagne-gold)]/30 transition-colors cursor-pointer mb-4">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <h4 className="font-medium text-[var(--color-midnight-navy)] group-hover:text-[var(--color-champagne-gold)] transition-colors">
-                                                            {session.title}
-                                                        </h4>
-                                                        <div className="flex items-center gap-2 text-xs text-[var(--color-midnight-navy)]/40 mt-1">
-                                                            <Clock className="w-3 h-3" />
-                                                            <span>{new Date(session.date).toLocaleDateString()}</span>
-                                                            <span>•</span>
-                                                            <span>{session.sentiment}</span>
+                                {(!client.sessions || client.sessions.length === 0) ? (
+                                    <div className="text-center py-10 text-gray-500">기록된 세션이 없습니다.</div>
+                                ) : (
+                                    <>
+                                        {client.sessions.slice(0, isHistoryExpanded ? undefined : 4).map((session: any) => (
+                                            <Link key={session.id} href={`/patients/${client.id}/sessions/${session.id}`} className="block group">
+                                                <div className="bg-white p-5 rounded-xl border border-[var(--color-midnight-navy)]/5 shadow-sm hover:border-[var(--color-champagne-gold)]/30 transition-colors cursor-pointer mb-4">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <h4 className="font-medium text-[var(--color-midnight-navy)] group-hover:text-[var(--color-champagne-gold)] transition-colors">
+                                                                {session.title}
+                                                            </h4>
+                                                            <div className="flex items-center gap-2 text-xs text-[var(--color-midnight-navy)]/40 mt-1">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span>{new Date(session.date).toLocaleDateString()}</span>
+                                                                <span>•</span>
+                                                                <span>{session.sentiment}</span>
+                                                            </div>
+                                                        </div>
+                                                        <span className="px-2 py-1 bg-[var(--color-warm-white)] rounded text-[10px] font-medium text-[var(--color-midnight-navy)]/60 uppercase">
+                                                            분석 완료
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-[var(--color-midnight-navy)]/70 line-clamp-2">
+                                                        {session.summary}
+                                                    </p>
+                                                    <div className="mt-4 flex gap-2">
+                                                        <div className="text-xs flex items-center gap-1 font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]">
+                                                            <FileText className="w-3 h-3" />
+                                                            상담 노트 보기
+                                                        </div>
+                                                        <div className="flex gap-1 ml-auto">
+                                                            {session.keywords.map((k: string) => (
+                                                                <span key={k} className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">#{k}</span>
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                    <span className="px-2 py-1 bg-[var(--color-warm-white)] rounded text-[10px] font-medium text-[var(--color-midnight-navy)]/60 uppercase">
-                                                        분석 완료
-                                                    </span>
                                                 </div>
-                                                <p className="text-sm text-[var(--color-midnight-navy)]/70 line-clamp-2">
-                                                    {session.summary}
-                                                </p>
-                                                <div className="mt-4 flex gap-2">
-                                                    <div className="text-xs flex items-center gap-1 font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)]">
-                                                        <FileText className="w-3 h-3" />
-                                                        상담 노트 보기
-                                                    </div>
-                                                    <div className="flex gap-1 ml-auto">
-                                                        {session.keywords.map((k: string) => (
-                                                            <span key={k} className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">#{k}</span>
-                                                        ))}
-                                                    </div>
-                                                </div>
+                                            </Link>
+                                        ))}
+
+                                        {client.sessions.length > 4 && (
+                                            <div className="flex justify-center mt-4">
+                                                <button
+                                                    onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                                                    className="px-4 py-2 text-sm font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)] bg-white border border-[var(--color-midnight-navy)]/10 rounded-lg hover:bg-[var(--color-midnight-navy)]/5 transition-colors"
+                                                >
+                                                    {isHistoryExpanded ? "접기" : `전체 보기 (${client.sessions.length})`}
+                                                </button>
                                             </div>
-                                        </Link>
-                                    ))}
+                                        )}
+                                    </>
+                                )}
+                            </div>
 
-                                    {client.sessions.length > 4 && (
-                                        <div className="flex justify-center mt-4">
-                                            <button
-                                                onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
-                                                className="px-4 py-2 text-sm font-medium text-[var(--color-midnight-navy)]/60 hover:text-[var(--color-midnight-navy)] bg-white border border-[var(--color-midnight-navy)]/10 rounded-lg hover:bg-[var(--color-midnight-navy)]/5 transition-colors"
-                                            >
-                                                {isHistoryExpanded ? "접기" : `전체 보기 (${client.sessions.length})`}
-                                            </button>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
+                            {/* Quick Notes Section */}
+                            <div className="pt-4 border-t border-[var(--color-midnight-navy)]/5">
+                                <h3 className="font-semibold text-[var(--color-midnight-navy)] text-lg mb-4 flex items-center gap-2">
+                                    수시 메모 (Quick Notes)
+                                    <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">Mobile Sync</span>
+                                </h3>
+                                {(!client.quickNotes || client.quickNotes.length === 0) ? (
+                                    <div className="text-center py-4 text-gray-400 text-sm italic">저장된 메모가 없습니다.</div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {client.quickNotes.map((note: any) => (
+                                            <div key={note.id} className="bg-amber-50 p-4 rounded-xl border border-amber-100 relative group">
+                                                <p className="text-sm text-amber-900/90 whitespace-pre-wrap leading-relaxed pr-6">{note.content}</p>
+                                                <span className="text-xs text-amber-800/50 mt-2 block flex justify-between">
+                                                    <span>{new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </span>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (await confirm('메모를 삭제하시겠습니까?')) {
+                                                            const res = await deleteQuickNote(note.id);
+                                                            if (res.success) {
+                                                                // Refresh local state if needed or rely on re-fetch
+                                                                setClient((prev: any) => prev ? {
+                                                                    ...prev,
+                                                                    quickNotes: prev.quickNotes.filter((n: any) => n.id !== note.id)
+                                                                } : null);
 
-                        {/* Quick Notes Section */}
-                        <div className="pt-4 border-t border-[var(--color-midnight-navy)]/5">
-                            <h3 className="font-semibold text-[var(--color-midnight-navy)] text-lg mb-4 flex items-center gap-2">
-                                수시 메모 (Quick Notes)
-                                <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">Mobile Sync</span>
-                            </h3>
-                            {(!client.quickNotes || client.quickNotes.length === 0) ? (
-                                <div className="text-center py-4 text-gray-400 text-sm italic">저장된 메모가 없습니다.</div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {client.quickNotes.map((note: any) => (
-                                        <div key={note.id} className="bg-amber-50 p-4 rounded-xl border border-amber-100 relative group">
-                                            <p className="text-sm text-amber-900/90 whitespace-pre-wrap leading-relaxed pr-6">{note.content}</p>
-                                            <span className="text-xs text-amber-800/50 mt-2 block flex justify-between">
-                                                <span>{new Date(note.createdAt).toLocaleDateString()} {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            </span>
-                                            <button
-                                                onClick={async () => {
-                                                    if (await confirm('메모를 삭제하시겠습니까?')) {
-                                                        const res = await deleteQuickNote(note.id);
-                                                        if (res.success) {
-                                                            // Refresh local state if needed or rely on re-fetch
-                                                            setClient((prev: any) => prev ? {
-                                                                ...prev,
-                                                                quickNotes: prev.quickNotes.filter((n: any) => n.id !== note.id)
-                                                            } : null);
-
-                                                            if (await confirm('삭제되었습니다. 되살리시겠습니까? (Undo)', {
-                                                                title: "실행 취소",
-                                                                confirmText: "되살리기",
-                                                                variant: "default"
-                                                            })) {
-                                                                const restoreRes = await restoreQuickNote(note.id);
-                                                                if (restoreRes.success) {
-                                                                    // Optimistically add back if we have full object, but simpler to reload
-                                                                    const result = await getClientWithHistory(client.id);
-                                                                    if (result.success && result.data) setClient(result.data as ClientWithSessions);
+                                                                if (await confirm('삭제되었습니다. 되살리시겠습니까? (Undo)', {
+                                                                    title: "실행 취소",
+                                                                    confirmText: "되살리기",
+                                                                    variant: "default"
+                                                                })) {
+                                                                    const restoreRes = await restoreQuickNote(note.id);
+                                                                    if (restoreRes.success) {
+                                                                        // Optimistically add back if we have full object, but simpler to reload
+                                                                        const result = await getClientWithHistory(client.id);
+                                                                        if (result.success && result.data) setClient(result.data as ClientWithSessions);
+                                                                    }
                                                                 }
                                                             }
                                                         }
-                                                    }
-                                                }}
-                                                className="absolute top-4 right-4 text-amber-800/20 hover:text-rose-500 transition-colors hidden group-hover:block"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                                    }}
+                                                    className="absolute top-4 right-4 text-amber-800/20 hover:text-rose-500 transition-colors hidden group-hover:block"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
             {/* Modals */}
             <PrescriptionModal

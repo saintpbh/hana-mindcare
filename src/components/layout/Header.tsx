@@ -9,7 +9,11 @@ import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { SessionCountDisplay } from "./SessionCountDisplay";
 
-export function Header() {
+interface HeaderProps {
+    onQuickAction?: (action: string) => void;
+}
+
+export function Header({ onQuickAction }: HeaderProps) {
     const { user, isAuthenticated, isLoading } = useAuth();
     const router = useRouter();
     const { role, setRole } = useUserRole();
@@ -92,10 +96,16 @@ export function Header() {
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsActionMenuOpen(false)} />
                             <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-neutral-100 p-2 z-50 flex flex-col animate-in slide-in-from-top-2 duration-200 origin-top-right">
-                                <Link
-                                    href="/schedule?intake=true" // Query param to trigger intake
-                                    onClick={() => setIsActionMenuOpen(false)}
-                                    className="px-4 py-3 text-left text-sm rounded-xl hover:bg-neutral-50 text-neutral-700 flex items-center gap-3 transition-colors group"
+                                <button
+                                    onClick={() => {
+                                        setIsActionMenuOpen(false);
+                                        if (onQuickAction) {
+                                            onQuickAction('intake');
+                                        } else {
+                                            router.push('/schedule?intake=true');
+                                        }
+                                    }}
+                                    className="w-full px-4 py-3 text-left text-sm rounded-xl hover:bg-neutral-50 text-neutral-700 flex items-center gap-3 transition-colors group"
                                 >
                                     <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                                         <Users className="w-4 h-4" />
@@ -104,7 +114,7 @@ export function Header() {
                                         <div className="font-medium">신규 내담자 등록</div>
                                         <div className="text-[10px] text-neutral-400">간편 접수 마법사</div>
                                     </div>
-                                </Link>
+                                </button>
                                 <Link
                                     href="/schedule?new=true"
                                     onClick={() => setIsActionMenuOpen(false)}

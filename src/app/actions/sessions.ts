@@ -16,8 +16,9 @@ export async function getSessionDetails(sessionId: string) {
             },
             include: {
                 client: true,
-                counselingLog: true
-            }
+                counselingLog: true,
+                transactions: true
+            } as any
         });
 
         if (!session) {
