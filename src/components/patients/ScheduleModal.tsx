@@ -228,7 +228,7 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
                                 {days.map(date => {
                                     const isSelected = selectedDate === date;
                                     const dayNum = date.split('-')[2];
-                                    const isToday = date === today.toISOString().split('T')[0];
+                                    const isToday = date === new Date().toISOString().split('T')[0];
 
                                     // Calculate how many events on this day
                                     // const dayEvents = clients.filter(c => c.nextSession === date && !c.isSessionCanceled); // Use appointments prop if available or mock
