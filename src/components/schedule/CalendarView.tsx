@@ -61,7 +61,7 @@ export function CalendarView({
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
 
-        const startingDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Mon=0, Sun=6
+        const startingDayOfWeek = firstDay.getDay(); // 0(Sun) to 6(Sat). Matches our Grid.
         const totalDays = lastDay.getDate();
 
         // Simple fixed 35 or 42 grid for now (5 or 6 rows)
