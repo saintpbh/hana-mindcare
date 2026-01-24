@@ -172,7 +172,7 @@ export default function SchedulePage() {
         } catch (e) {
             alert("오류 발생");
         }
-    }
+    };
 
     return (
         <div className="min-h-screen bg-[var(--color-warm-white)] p-8 overflow-hidden flex flex-col h-screen">
