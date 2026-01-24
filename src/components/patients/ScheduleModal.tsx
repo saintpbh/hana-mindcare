@@ -61,6 +61,11 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     const [counselors, setCounselors] = useState<any[]>([]);
     const [selectedCounselorId, setSelectedCounselorId] = useState<string>(activeClient?.counselorId || "");
 
+    // Month navigation state
+    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    const [sendSms, setSendSms] = useState(true);
+
     useEffect(() => {
         const loadCounselors = async () => {
             const { getCounselors } = await import("@/app/actions/counselors");
@@ -74,9 +79,6 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
         };
         loadCounselors();
     }, [activeClient]);
-
-    // SMS State
-    const [sendSms, setSendSms] = useState(true);
 
     const fetchLocs = async () => {
         const res = await getLocations();
@@ -158,8 +160,6 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     };
 
     // Simple calendar generation for current/next month
-    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
