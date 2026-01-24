@@ -127,29 +127,51 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     };
 
     const handleConfirm = async () => {
-        if (!activeClient) return;
+        console.log('🔵 handleConfirm called');
+        if (!activeClient) {
+            console.log('❌ No active client, returning');
+            return;
+        }
 
-        // Call Server Action
-        const result = await createAppointment({
+        console.log('🔵 Calling createAppointment with:', {
             clientId: activeClient.id,
             date: selectedDate,
             time: selectedTime,
             type: selectedType,
             duration: parseInt(selectedDuration),
-            notes: `Location: ${selectedLocation}`, // Store location in notes for now
-            recurring: selectedRecurring,
-            counselorId: selectedCounselorId,
-            location: selectedLocation // Pass explicit location field
+            location: selectedLocation
         });
 
-        if (result.success) {
-            if (rescheduleMode && sendSms) {
-                alert(`[Simulation] SMS sent to ${activeClient.name}: "Your appointment has been rescheduled to ${selectedDate} at ${selectedTime}."`);
+        try {
+            // Call Server Action
+            const result = await createAppointment({
+                clientId: activeClient.id,
+                date: selectedDate,
+                time: selectedTime,
+                type: selectedType,
+                duration: parseInt(selectedDuration),
+                notes: `Location: ${selectedLocation}`, // Store location in notes for now
+                recurring: selectedRecurring,
+                counselorId: selectedCounselorId,
+                location: selectedLocation // Pass explicit location field
+            });
+
+            console.log('🔵 createAppointment result:', result);
+
+            if (result.success) {
+                console.log('✅ Success! Appointment created');
+                if (rescheduleMode && sendSms) {
+                    alert(`[Simulation] SMS sent to ${activeClient.name}: "Your appointment has been rescheduled to ${selectedDate} at ${selectedTime}."`);
+                }
+                if (onSuccess) onSuccess();
+                onClose();
+            } else {
+                console.error('❌ Failed to create appointment. Error:', result.error);
+                alert(`Failed to create appointment. ${result.error || ''}`);
             }
-            if (onSuccess) onSuccess();
-            onClose();
-        } else {
-            alert("Failed to create appointment.");
+        } catch (error) {
+            console.error('❌ Exception in handleConfirm:', error);
+            alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     };
 
