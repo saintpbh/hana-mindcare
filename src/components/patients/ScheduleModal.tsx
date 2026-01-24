@@ -158,9 +158,8 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
     };
 
     // Simple calendar generation for current/next month
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
+    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
@@ -169,6 +168,26 @@ export function ScheduleModal({ isOpen, onClose, onSuccess, client, selectedClie
         const d = new Date(currentYear, currentMonth, i + 1);
         return d.toISOString().split('T')[0];
     });
+
+    const goToPreviousMonth = () => {
+        if (currentMonth === 0) {
+            setCurrentMonth(11);
+            setCurrentYear(currentYear - 1);
+        } else {
+            setCurrentMonth(currentMonth - 1);
+        }
+    };
+
+    const goToNextMonth = () => {
+        if (currentMonth === 11) {
+            setCurrentMonth(0);
+            setCurrentYear(currentYear + 1);
+        } else {
+            setCurrentMonth(currentMonth + 1);
+        }
+    };
+
+    const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--color-midnight-navy)]/20 backdrop-blur-sm animate-in fade-in duration-200">
