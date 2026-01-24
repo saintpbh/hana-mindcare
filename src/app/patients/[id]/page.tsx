@@ -102,6 +102,13 @@ export default function PatientPage() {
             // Refresh client data
             setClient((prev: any) => prev ? { ...prev, status: 'terminated' } : null);
             setIsTerminateOpen(false);
+
+            // Show success message with cancelled appointment count
+            if (result.cancelledCount && result.cancelledCount > 0) {
+                alert(`상담이 종결되었습니다.\n${result.cancelledCount}개의 예정된 일정이 취소되었습니다.`);
+            } else {
+                alert('상담이 종결되었습니다.');
+            }
         } else {
             alert("처리 중 오류가 발생했습니다.");
         }
@@ -339,6 +346,7 @@ export default function PatientPage() {
                         </DialogTitle>
                         <DialogDescription className="text-center text-[var(--color-midnight-navy)]/60 pt-2 leading-relaxed">
                             <strong className="text-[var(--color-midnight-navy)]">{client.name}</strong>님의 모든 상담 과정이 종료됩니다.<br />
+                            <span className="text-rose-600 font-medium">예정된 모든 일정이 자동으로 취소됩니다.</span><br />
                             종결된 상담은 별도 목록에서 관리됩니다.
                         </DialogDescription>
                     </DialogHeader>

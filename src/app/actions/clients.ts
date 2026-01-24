@@ -122,15 +122,44 @@ export async function deleteClient(id: string) {
 
 export async function terminateClient(id: string) {
     try {
+        const session = await requireAuth();
+
+        // Update client status
         const client = await prisma.client.update({
-            where: { id },
+            where: { id, accountId: session.accountId },
             data: {
                 status: 'terminated',
                 terminatedAt: new Date()
             }
         });
+
+        // Cancel all future scheduled appointments
+        const now = new Date();
+        const cancelledSessions = await prisma.session.updateMany({
+            where: {
+                clientId: id,
+                accountId: session.accountId,
+                status: 'Scheduled',
+                date: {
+                    gt: now // Greater than now (future appointments)
+                }
+            },
+            data: {
+                status: 'Cancelled'
+            }
+        });
+
+        console.log(`Terminated client ${id}, cancelled ${cancelledSessions.count} future appointments`);
+
         revalidatePath('/');
-        return { success: true, data: client };
+        revalidatePath('/schedule');
+        revalidatePath(`/patients/${id}`);
+
+        return {
+            success: true,
+            data: client,
+            cancelledCount: cancelledSessions.count
+        };
     } catch (error) {
         console.error('Failed to terminate client:', error);
         return { success: false, error: 'Failed to terminate client' };
