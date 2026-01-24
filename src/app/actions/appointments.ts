@@ -137,7 +137,7 @@ export async function createAppointment(data: {
             data: {
                 clientId: data.clientId,
                 accountId: session.accountId,
-                counselorId: data.counselorId,
+                counselorId: data.counselorId || undefined, // Convert empty string to undefined
                 date: dateTime,
                 title: `${data.type} (예약)`, // Default title
                 type: data.type,
