@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Clock, MapPin, MessageCircle, MessageSquare, Phone, Video, X, Trash2 } from "lucide-react";
+import { Calendar, Clock, MapPin, MessageCircle, MessageSquare, Phone, Video, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -8,10 +8,9 @@ interface ScheduleDetailPanelProps {
     appointment: any | null;
     onClose: () => void;
     onEdit: (id: number) => void;
-    onDelete: (id: number) => void;
 }
 
-export function ScheduleDetailPanel({ appointment, onClose, onEdit, onDelete }: ScheduleDetailPanelProps) {
+export function ScheduleDetailPanel({ appointment, onClose, onEdit }: ScheduleDetailPanelProps) {
     if (!appointment) {
         return (
             <div className="w-80 bg-white border-l border-[var(--color-midnight-navy)]/5 flex flex-col items-center justify-center text-[var(--color-midnight-navy)]/40 p-6 text-center">

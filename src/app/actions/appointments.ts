@@ -28,7 +28,6 @@ export async function getAppointments(startDate: Date, endDate: Date) {
         const sessions = await prisma.session.findMany({
             where: {
                 accountId: session.accountId,
-                deletedAt: null, // Exclude soft-deleted appointments
                 date: {
                     gte: startDate,
                     lte: endDate
@@ -56,7 +55,6 @@ export async function getNextSession() {
         const nextSession = await prisma.session.findFirst({
             where: {
                 accountId: session.accountId,
-                deletedAt: null, // Exclude soft-deleted sessions
                 date: { gte: now },
                 status: 'Scheduled'
             },
@@ -310,136 +308,3 @@ export async function processIntake(data: {
     }
 }
 
-// =====================================================
-// SOFT DELETE OPERATIONS
-// =====================================================
-
-/**
- * Soft delete an appointment (move to trash)
- */
-export async function softDeleteAppointment(appointmentId: string) {
-    try {
-        const session = await requireAuth();
-        
-        const appointment = await prisma.session.update({
-            where: {
-                id: appointmentId,
-                accountId: session.accountId,
-            },
-            data: {
-                deletedAt: new Date()
-            }
-        });
-
-        revalidatePath('/schedule');
-        return { success: true, data: appointment };
-    } catch (error) {
-        console.error('Failed to delete appointment:', error);
-        return { success: false, error: 'Failed to delete appointment' };
-    }
-}
-
-/**
- * Restore a soft-deleted appointment
- */
-export async function restoreAppointment(appointmentId: string) {
-    try {
-        const session = await requireAuth();
-        
-        const appointment = await prisma.session.update({
-            where: {
-                id: appointmentId,
-                accountId: session.accountId,
-            },
-            data: {
-                deletedAt: null
-            }
-        });
-
-        revalidatePath('/schedule');
-        return { success: true, data: appointment };
-    } catch (error) {
-        console.error('Failed to restore appointment:', error);
-        return { success: false, error: 'Failed to restore appointment' };
-    }
-}
-
-/**
- * Get all soft-deleted appointments (trash)
- */
-export async function getDeletedAppointments() {
-    try {
-        const session = await requireAuth();
-        
-        const deletedSessions = await prisma.session.findMany({
-            where: {
-                accountId: session.accountId,
-                deletedAt: { not: null }
-            },
-            include: {
-                client: {
-                    select: { name: true }
-                }
-            },
-            orderBy: { deletedAt: 'desc' }
-        });
-
-        const mapped = deletedSessions.map(s => ({
-            ...mapSessionToAppointment(s),
-            deletedAt: s.deletedAt?.toISOString()
-        }));
-
-        return { success: true, data: mapped };
-    } catch (error) {
-        console.error('Failed to fetch deleted appointments:', error);
-        return { success: false, error: 'Failed to fetch deleted appointments' };
-    }
-}
-
-/**
- * Permanently delete an appointment (cannot be restored)
- */
-export async function permanentlyDeleteAppointment(appointmentId: string) {
-    try {
-        const session = await requireAuth();
-        
-        await prisma.session.delete({
-            where: {
-                id: appointmentId,
-                accountId: session.accountId,
-            }
-        });
-
-        revalidatePath('/schedule');
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to permanently delete appointment:', error);
-        return { success: false, error: 'Failed to permanently delete appointment' };
-    }
-}
-
-/**
- * Cleanup appointments deleted more than 30 days ago
- */
-export async function cleanupOldDeletedAppointments() {
-    try {
-        const session = await requireAuth();
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        
-        const result = await prisma.session.deleteMany({
-            where: {
-                accountId: session.accountId,
-                deletedAt: {
-                    not: null,
-                    lte: thirtyDaysAgo
-                }
-            }
-        });
-
-        return { success: true, count: result.count };
-    } catch (error) {
-        console.error('Failed to cleanup old deleted appointments:', error);
-        return { success: false, error: 'Failed to cleanup old appointments' };
-    }
-}
