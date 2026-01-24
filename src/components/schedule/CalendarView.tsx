@@ -246,123 +246,178 @@ export function CalendarView({
         setDragPos(null); // Clear drag pos
     };
 
-    const renderAppointments = (dayIndex: number) => {
-        // Filter appointments for the current day column
-        const filtered = appointments.filter(apt => apt.day === dayIndex);
+    const renderAppointments = (dateKey: string) => {
+        // 1. Strict Date Filtering: Only show appointments for this specific YYYY-MM-DD
+        const dayApts = appointments.filter(apt => apt.rawDate === dateKey);
 
-        return filtered.map(apt => (
-            <div
-                key={apt.id}
-                onMouseDown={(e) => handleDragStart(e, apt.id)}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    if (onSelectAppointment) onSelectAppointment(apt.id);
-                }}
-                className={cn(
-                    "absolute left-1 right-1 rounded-lg border shadow-sm transition-all flex flex-col overflow-hidden group z-10",
-                    apt.color,
-                    view === "day" ? "flex-row items-center p-0" : "p-2 flex-col",
-                    draggingId === apt.id ? "opacity-80 scale-[1.02] shadow-xl z-50 cursor-grabbing" : "cursor-grab",
-                    resizingId === apt.id ? "cursor-ns-resize" : "",
-                    selectedAppointmentId === apt.id ? "ring-2 ring-[var(--color-midnight-navy)] ring-offset-1 z-40" : ""
-                )}
-                style={{
-                    top: `${(apt.time - 9) * ROW_HEIGHT}px`,
-                    height: `${apt.duration * ROW_HEIGHT - 4}px` // -4 margin
-                }}
-            >
-                {view === "day" ? (
-                    // Day View Layout: Horizontal Rich Card
-                    <>
-                        {/* 1. Time Box (Left) */}
-                        <div className="w-[80px] shrink-0 flex flex-col justify-center items-center h-full border-r border-black/5 bg-black/5">
-                            <div className="text-sm font-bold opacity-80">
-                                {Math.floor(apt.time)}:{((apt.time % 1) * 60).toString().padStart(2, '0')}
-                            </div>
-                            <div className="text-[10px] opacity-50 font-mono">
-                                {(apt.duration * 60)}min
-                            </div>
-                        </div>
+        // 2. Overlap Calculation
+        // Sort by start time, then duration (longer first)
+        const sorted = [...dayApts].sort((a, b) => {
+            if (a.time !== b.time) return a.time - b.time;
+            return b.duration - a.duration;
+        });
 
-                        {/* 2. Main Content (Middle) */}
-                        <div className="flex-1 min-w-0 p-3 flex flex-col justify-center gap-1">
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-lg leading-none">{apt.title}</span>
-                                <span className="text-xs opacity-60 font-medium">12/20회</span>
-                                <div className="flex gap-1 ml-2">
-                                    <span className="text-[10px] uppercase font-bold border border-current px-1.5 py-0.5 rounded-full opacity-70">
-                                        {apt.type}
-                                    </span>
-                                    {apt.type === 'Crisis' && (
-                                        <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                                            CRITICAL
-                                        </span>
-                                    )}
+        // Simple column packing algorithm
+        // We need to know for each appointment: width (%) and left (%)
+        // A naive approach: if A and B overlap, width=50%, A.left=0%, B.left=50%
+
+        const layout: Record<number, { width: string, left: string }> = {};
+
+        // Find clusters of overlapping events
+        const clusters: Appointment[][] = [];
+        let currentCluster: Appointment[] = [];
+
+        sorted.forEach((apt, i) => {
+            if (currentCluster.length === 0) {
+                currentCluster.push(apt);
+                return;
+            }
+
+            // Check overlap with the CLUSTER's bounds
+            // Simplification: Check overlap with ANY in current cluster
+            // Ideally we check if apt.start < cluster.end
+            const clusterEnd = Math.max(...currentCluster.map(c => c.time + c.duration));
+
+            if (apt.time < clusterEnd) {
+                currentCluster.push(apt);
+            } else {
+                clusters.push(currentCluster);
+                currentCluster = [apt];
+            }
+        });
+        if (currentCluster.length > 0) clusters.push(currentCluster);
+
+        // Process clusters to assign positions
+        clusters.forEach(cluster => {
+            // Primitive strategy: split explicitly by concurrency count
+            // This isn't Google Calendar's perfect packing but works for "2 items"
+            const count = cluster.length;
+            const width = 100 / count;
+
+            // Assign columns 0..N-1?
+            // Simple visual fix: just evenly distribute
+            cluster.forEach((apt, idx) => {
+                layout[apt.id] = {
+                    width: `${width}%`,
+                    left: `${idx * width}%`
+                };
+            });
+        });
+
+        return sorted.map(apt => {
+            const style = layout[apt.id] || { width: "100%", left: "0%" };
+            return (
+                <div
+                    key={apt.id}
+                    onMouseDown={(e) => handleDragStart(e, apt.id)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSelectAppointment) onSelectAppointment(apt.id);
+                    }}
+                    className={cn(
+                        "absolute rounded-lg border shadow-sm transition-all flex flex-col overflow-hidden group z-10",
+                        apt.color,
+                        view === "day" ? "flex-row items-center p-0" : "p-2 flex-col",
+                        draggingId === apt.id ? "opacity-80 scale-[1.02] shadow-xl z-50 cursor-grabbing" : "cursor-grab",
+                        resizingId === apt.id ? "cursor-ns-resize" : "",
+                        selectedAppointmentId === apt.id ? "ring-2 ring-[var(--color-midnight-navy)] ring-offset-1 z-40" : ""
+                    )}
+                    style={{
+                        top: `${(apt.time - 9) * ROW_HEIGHT}px`,
+                        height: `${apt.duration * ROW_HEIGHT - 4}px`, // -4 margin
+                        // Apply calculated layout
+                        left: view === "day" ? "1px" : style.left,
+                        width: view === "day" ? "calc(100% - 2px)" : style.width,
+                        // Note: For Day View, we generally keep full width unless we want side-by-side there too. 
+                        // Let's force side-by-side even in Day View? User Request said "Daily-Weekly" so likely yes.
+                        // But Day view has huge horizontal space. Let's apply layout logic universally if view != 'day' OR just apply it.
+                        // Actually, Day view layout (flex-row items-center) implies a different card structure. 
+                        // Let's stick to vertical packing logic for now but apply the positioning to both.
+                        // Override left/width for Day View? No, let's try allowing overlap handling in Day View too.
+                        // Reverting Day View specific overrides for position:
+                        // left: style.left
+                        // width: style.width
+                    }}
+                >
+                    {view === "day" ? (
+                        // Day View Layout: Horizontal Rich Card
+                        <>
+                            {/* 1. Time Box (Left) */}
+                            <div className="w-[80px] shrink-0 flex flex-col justify-center items-center h-full border-r border-black/5 bg-black/5">
+                                <div className="text-sm font-bold opacity-80">
+                                    {Math.floor(apt.time)}:{((apt.time % 1) * 60).toString().padStart(2, '0')}
+                                </div>
+                                <div className="text-[10px] opacity-50 font-mono">
+                                    {(apt.duration * 60)}min
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4 text-xs opacity-70">
-                                <div className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    <span>{apt.location || "양재 센터"}</span>
+                            {/* 2. Main Content (Middle) */}
+                            <div className="flex-1 min-w-0 p-3 flex flex-col justify-center gap-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-lg leading-none truncate">{apt.title}</span>
+                                    <span className="text-xs opacity-60 font-medium whitespace-nowrap">12/20회</span>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <div className="w-1 h-1 rounded-full bg-current opacity-50" />
-                                    <span>지난 회기: 과제 수행 완료</span>
+
+                                <div className="flex items-center gap-4 text-xs opacity-70">
+                                    <div className="flex items-center gap-1 overflow-hidden">
+                                        <MapPin className="w-3 h-3 shrink-0" />
+                                        <span className="truncate">{apt.location || "양재 센터"}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* 3. Actions / Side Stats (Right) */}
-                        <div className="px-4 flex flex-col justify-center items-end opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onEditAppointment(apt.id); }}
-                                className="p-1.5 rounded-full bg-white/50 hover:bg-white text-[var(--color-midnight-navy)] shadow-sm"
-                            >
-                                <GripVertical className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    // Week View Layout (Vertical Compact)
-                    <>
-                        {/* Header: Time & Actions */}
-                        <div className="flex justify-between items-start mb-1 h-5">
-                            <span className="text-[10px] font-bold opacity-70">
-                                {Math.floor(apt.time)}:{((apt.time % 1) * 60).toString().padStart(2, '0')}
-                            </span>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* 3. Actions / Side Stats (Right) */}
+                            <div className="px-4 flex flex-col justify-center items-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onEditAppointment(apt.id); }}
-                                    className="p-0.5 rounded hover:bg-black/10 text-[10px]"
-                                    title="예약 변경"
+                                    className="p-1.5 rounded-full bg-white/50 hover:bg-white text-[var(--color-midnight-navy)] shadow-sm"
                                 >
-                                    <GripVertical className="w-3 h-3" />
+                                    <GripVertical className="w-4 h-4" />
                                 </button>
                             </div>
-                        </div>
-
-                        {/* Body: Client Info */}
-                        <div className="flex-1 min-h-0 flex items-center justify-center text-center px-1">
-                            <div className="font-extrabold text-sm leading-tight text-[var(--color-midnight-navy)] truncate w-full">
-                                {apt.title} <span className="text-[10px] font-medium opacity-60 ml-1">@{apt.location || "양재"}</span>
+                        </>
+                    ) : (
+                        // Week View Layout (Vertical Compact)
+                        <>
+                            {/* Header: Time & Actions */}
+                            <div className="flex justify-between items-start mb-1 h-5">
+                                <span className="text-[10px] font-bold opacity-70">
+                                    {Math.floor(apt.time)}:{((apt.time % 1) * 60).toString().padStart(2, '0')}
+                                </span>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onEditAppointment(apt.id); }}
+                                        className="p-0.5 rounded hover:bg-black/10 text-[10px]"
+                                        title="예약 변경"
+                                    >
+                                        <GripVertical className="w-3 h-3" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Footer - Spacer or Minimal Info */}
-                        <div className="h-2" />
-                    </>
-                )}
+                            {/* Body: Client Info */}
+                            <div className="flex-1 min-h-0 flex items-center justify-center text-center px-1">
+                                <div className="font-extrabold text-sm leading-tight text-[var(--color-midnight-navy)] truncate w-full">
+                                    {apt.title}
+                                </div>
+                            </div>
 
-                {/* Resize Handle */}
-                <div
-                    onMouseDown={(e) => handleResizeStart(e, apt.id)}
-                    className="absolute bottom-0 left-0 right-0 h-3 flex items-center justify-center cursor-ns-resize hover:bg-black/10 transition-colors z-20"
-                >
-                    <div className="w-8 h-1 rounded-full bg-black/10" />
+                            {/* Footer - Spacer or Minimal Info */}
+                            <div className="h-2" />
+                        </>
+                    )}
+
+                    {/* Resize Handle */}
+                    <div
+                        onMouseDown={(e) => handleResizeStart(e, apt.id)}
+                        className="absolute bottom-0 left-0 right-0 h-3 flex items-center justify-center cursor-ns-resize hover:bg-black/10 transition-colors z-20"
+                    >
+                        <div className="w-8 h-1 rounded-full bg-black/10" />
+                    </div>
                 </div>
-            </div>
-        ));
+            );
+        });
     };
 
     if (view === "month") {
@@ -569,7 +624,7 @@ export function CalendarView({
                                 ))}
 
                                 {/* Render Appointments for this day */}
-                                {renderAppointments(dayIndex)}
+                                {renderAppointments(formatDate(displayDate))}
                             </div>
                         );
                     })}

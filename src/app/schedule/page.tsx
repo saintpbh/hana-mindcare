@@ -14,8 +14,7 @@ import { ClientSelectModal } from "@/components/schedule/ClientSelectModal";
 import { ExistingClientSearch } from "@/components/schedule/ExistingClientSearch";
 import { QuickScheduleModal } from "@/components/schedule/QuickScheduleModal";
 
-import { getAppointments } from "@/app/actions/appointments";
-import { useEffect } from "react";
+import { useScheduleData } from "@/hooks/useScheduleData";
 
 export default function SchedulePage() {
     const [isIntakeOpen, setIsIntakeOpen] = useState(false);
@@ -24,11 +23,13 @@ export default function SchedulePage() {
     const [isQuickScheduleOpen, setIsQuickScheduleOpen] = useState(false);
     const [selectedClient, setSelectedClient] = useState<any>(null);
     const [editingAppointment, setEditingAppointment] = useState<any>(null);
-    const [appointments, setAppointments] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    // View State
     const [currentView, setCurrentView] = useState<"day" | "week" | "month">("week");
-    const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
     const [currentDate, setCurrentDate] = useState(new Date()); // Default to Today (System Time)
+    const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
+
+    // Data Hook (Phase 2 Refactor)
+    const { appointments, setAppointments, isLoading, refresh } = useScheduleData(currentDate, currentView);
 
     // Smart Selection Logic: explicit select -> current time (mocked for demo) -> next upcoming
     const selectedAppointment = appointments.find(a => a.id === selectedAppointmentId);
