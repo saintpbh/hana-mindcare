@@ -41,22 +41,37 @@ export async function getClients() {
 
 export async function updateClient(id: string, data: Partial<Client>) {
     try {
+        console.log('updateClient called with:', { id, data });
         const session = await requirePermission('client:update:all');
+
+        // Clean up empty string values that should be null/undefined for foreign keys
+        const cleanedData = {
+            ...data,
+            counselorId: data.counselorId || undefined, // Convert empty string to undefined
+        };
+
+        console.log('Cleaned data:', cleanedData);
 
         const client = await prisma.client.update({
             where: {
                 id,
                 accountId: session.accountId
             },
-            data,
+            data: cleanedData,
         })
+
+        console.log('Client updated successfully:', client.id);
         revalidatePath('/')
         revalidatePath('/mobile-admin')
         revalidatePath(`/patients/${id}`)
         return { success: true, data: client }
     } catch (error) {
-        console.error('Failed to update client:', error)
-        return { success: false, error: 'Failed to update client' }
+        console.error('Failed to update client - Full error:', error)
+        console.error('Error details:', {
+            name: error instanceof Error ? error.name : 'Unknown',
+            message: error instanceof Error ? error.message : String(error)
+        });
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to update client' }
     }
 }
 
